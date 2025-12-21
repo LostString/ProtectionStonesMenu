@@ -1,0 +1,536 @@
+config:
+  banModule: true # enable ban module?
+  kickModule: true # enable kick module
+
+  openOnClickBlock: true # open the menu wen player right-click the ProtectionStone Block
+  openPSCommands: true # open the menus with /ps command?
+
+command:
+  name: "psmenu"
+  permission: "psmenu.admin"
+  aliases: []
+
+guis:
+  main:
+    title: "&7ProtectionStones Home Menu"
+    rows: 4
+    ps-homes:
+      id: COMPASS
+      name: "&fSee all your &aProtectionStones"
+      lore:
+        - "&7"
+        - "&8» &7Click to see all your &aProtectionStones&7!"
+      slot: 11
+    # This item is used to show information about the ProtectionStone the player is currently in
+    ps-info:
+      id: BOOK
+      name: " &8[&7 Current &aProtectionStones &7info &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Name: &b%name%"
+        - "&8&l| &7World: &a%world%"
+        - "&8&l| &7Location: &aX:&f%x% &aY:&f%y% &aZ:&f%z%"
+        - "&8&l| &7Owners: &c%owners%"
+        - "&8&l| &7Members: &b%members%"
+        - "&7"
+        - "&8» &7Click to edit!"
+      slot: 15
+    # This item is shown when the player is not in a ProtectionStone
+    ps-info2:
+      id: BARRIER
+      name: "&c¡You are not in a &aProtectionStone&c!"
+      slot: 15
+    custom:
+      close:
+        id: BARRIER
+        slot: 31
+        name: " &8[&c Close &8]"
+        lore:
+          - "&7"
+          - "&8» &7Click to close menu!"
+        action: CLOSE_MENU
+  homes:
+    title: "&7ProtectionStones Homes Menu"
+    rows: 6
+    # This item is used to show all ProtectionStones of the player
+    ps-item:
+      id: "COMPASS"
+      name: " &8[ &fHome &a%name% &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Owners: &c%owners%"
+        - "&8&l| &7Members: &b%members%"
+        - "&8&l| &7World: &a%world%"
+        - "&8&l| &7Location: &aX:&f%x% &aY:&f%y% &aZ:&f%z%"
+        - ""
+        - "&8» &7Click to teleport!"
+        - "&8» &7R-Click to manage!"
+      slots:
+        - 10-16
+        - 19-25
+        - 28-34
+        - 37-43
+    custom:
+      glass:
+        id: BLACK_STAINED_GLASS_PANE
+        slots:
+          - 0-9
+          - 17-18
+          - 26-27
+          - 35-36
+          - 44-53
+        name: ""
+        lore: []
+        action: NONE
+      close:
+        id: ARROW
+        slot: 49
+        name: " &8[&c Back &8]"
+        lore:
+          - "&7"
+          - "&8» &7Click to back!"
+        action: OPEN_MENU
+        menu: main
+  edit:
+    title: "&7ProtectionStone Edit Menu"
+    rows: 6
+    # This item is used to rename the ProtectionStone
+    ps-rename:
+      id: NAME_TAG
+      name: " &8[&f Rename &aProtectionStone &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Current Name: &b%name%"
+        - "&7"
+        - "&8» &7Click to rename your &aProtectionStone&7!"
+      slot: 20
+    # This item is used to edit the flags of the ProtectionStone
+    ps-flags:
+      id: OAK_SIGN
+      name: " &8[&f Edit &aProtectionStone &fflags &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to edit your &aProtectionStone &fflags&7!"
+      slot: 21
+    # This item is used to manage the owners of the ProtectionStone
+    ps-owners:
+      id: PLAYER_HEAD
+      url: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYjg4NjdjMWM1ODI2Yjk5NDcwOTUzYWM4OTA4MDI4ZWM4OWI1YzZjMTRkMWJkOGI1ZDM2NmM2ZWFiODhjZmUwYSJ9fX0="
+      name: " &8[&f Manage &aProtectionStone &fowners &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Owners: &c%owners%"
+        - "&7"
+        - "&8» &7Click to manage your &aProtectionStone &fowners&7!"
+      slot: 22
+    # This item is used to manage the members of the ProtectionStone
+    ps-members:
+      id: PLAYER_HEAD
+      name: " &8[&f Manage &aProtectionStone &fmembers &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Members: &b%members%"
+        - "&7"
+        - "&8» &7Click to manage your &aProtectionStone &fmembers&7!"
+      slot: 23
+    # This item is used to toggle the visibility of the ProtectionStone
+    ps-hide-on:
+      id: LIME_DYE
+      name: " &8[&c Disable &aProtectionStone &fvisibility &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to toggle your &aProtectionStone &fvisibility&7!"
+      slot: 24
+    # This item is used to toggle the visibility of the ProtectionStone
+    ps-hide-off:
+      id: RED_DYE
+      name: " &8[&a Enable &aProtectionStone &fvisibility &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to toggle your &aProtectionStone &fvisibility&7!"
+      slot: 24
+    # This item is used to open the ban menu if the ban module is enabled in the config.yml
+    ps-ban:
+      id: PLAYER_HEAD
+      url: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNGY0NzJhZDgwMWUzM2U5ZmJmNTQyMmZiOTBhYTM1NjAyODc1MTE4YzEyOWFmZWFkZWM1ZmE2ODdjODhmODI4OSJ9fX0="
+      name: " &8[&c Ban &aPlayers &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Banned Players: &4%banned%"
+        - "&7"
+        - "&8» &7Click to ban players from your &aProtectionStone&7!"
+      slot: 31
+    custom:
+      glass:
+        id: BLACK_STAINED_GLASS_PANE
+        slots:
+          - 0-9
+          - 17-18
+          - 26-27
+          - 35-36
+          - 44-53
+        name: ""
+        lore: []
+        action: NONE
+      info:
+        id: BOOK
+        name: " &8[&7 &aProtectionStones &7info &8]"
+        lore:
+          - "&7"
+          - "&8&l| &7World: &a%world%"
+          - "&8&l| &7Location: &aX:&f%x% &aY:&f%y% &aZ:&f%z%"
+          - "&8&l| &7Owners: &c%owners%"
+          - "&8&l| &7Members: &b%members%"
+          - "&8&l| &7Banned Players: &4%banned%"
+          - "&7"
+        slot: 4
+        acton: NONE
+      close:
+        id: ARROW
+        slot: 49
+        name: " &8[ &cBack &8]"
+        lore:
+          - "&7"
+          - "&8» &7Click to back!"
+        action: OPEN_MENU
+        menu: homes
+  edit-flags:
+    title: "&7ProtectionStone Flags Menu"
+    rows: 6
+    # These items are used to toggle the flags of the ProtectionStone
+    flags:
+      flag-pvp:
+        enabled: true
+        id: IRON_SWORD
+        name: " &8[&c PvP &8]"
+        lore:
+          - "&7&o(Toggles pvp inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle PvP flag!"
+          - "&8» &7Right-Click to change group!"
+        slot: 20
+      flag-mob-damage:
+        enabled: true
+        id: ZOMBIE_HEAD
+        name: " &8[&9 Mob Damage &8]"
+        lore:
+          - "&7&o(Toggles mob damage inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Mob Damage flag!"
+          - "&8» &7Right-Click to change group!"
+        slot: 21
+      flag-mob-spawning:
+        enabled: true
+        id: SPAWNER
+        name: " &8[&2 Mob Spawning &8]"
+        lore:
+          - "&7&o(Toggles mob spawning inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Mob Spawning flag!"
+          - "&8» &7Right-Click to change group!"
+        slot: 22
+      flag-creeper-explosion:
+        enable: true
+        id: CREEPER_HEAD
+        name: " &8[&a Creeper Explosions &8]"
+        lore:
+          - "&7&o(Toggles creeper explosions inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Explosions flag!"
+          - "&8» &7Right-Click to change group!"
+        slot: 23
+      flag-wither-damage:
+        enable: true
+        id: WITHER_SKELETON_SKULL
+        name: " &8[&5 Wither Damage &8]"
+        lore:
+          - "&7&o(Toggles wither damage inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Wither Damage flag!"
+          - "&8» &7Right-Click to change group!"
+        slot: 24
+      flag-ghast-fireball:
+        enable: true
+        id: FIRE_CHARGE
+        name: " &8[&6 Ghast Fireball &8]"
+        lore:
+          - "&7&o(Toggles ghast fireball damage inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Ghast Fireball flag!"
+          - "&8» &7Right-Click to change group!"
+        slot: 31
+    custom:
+      glass:
+        id: BLACK_STAINED_GLASS_PANE
+        slots:
+          - 0-9
+          - 17-18
+          - 26-27
+          - 35-36
+          - 44-53
+        name: ""
+        lore: []
+        action: NONE
+      info:
+        id: BOOK
+        name: " &8[&7 &aProtectionStones &7info &8]"
+        lore:
+          - "&7"
+          - "&8&l| &7Name: &b%name%"
+          - "&8&l| &7World: &a%world%"
+          - "&8&l| &7Location: &aX:&f%x% &aY:&f%y% &aZ:&f%z%"
+          - "&8&l| &7Owners: &c%owners%"
+          - "&8&l| &7Members: &b%members%"
+          - "&7"
+        slot: 4
+        acton: NONE
+      close:
+        id: ARROW
+        slot: 49
+        name: " &8[ &cBack &8]"
+        lore:
+          - "&7"
+          - "&8» &7Click to back!"
+        action: OPEN_MENU
+        menu: edit
+  edit-owners:
+    title: "&7ProtectionStone Owners Menu"
+    rows: 6
+    # This item is used to show all owners of the ProtectionStone
+    owners:
+      id: PLAYER_HEAD
+      url: player
+      name: " &8[&c Owner &a%player% &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Click to edit &c%player% &7!"
+        - "&7"
+      slots:
+        - 10-16
+        - 19-25
+        - 28-34
+        - 37-43
+    # This item is used to add a new owner to the ProtectionStone
+    add-owner:
+      id: PLAYER_HEAD
+      url: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTc3YmI2NmZjNzNhOTdjZWZjYjNhNGJmZGNjYjEyMjgxZjQ0ZGQzMjZjY2QwZmYzOWQ0N2U5ODViZmVmZjM0MyJ9fX0="
+      slot: 50
+      name: " &8[&a Add Owner &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to add a new owner!"
+    custom:
+      glass:
+        id: BLACK_STAINED_GLASS_PANE
+        slots:
+          - 0-9
+          - 17-18
+          - 26-27
+          - 35-36
+          - 44-49
+          - 51-53
+        name: ""
+        lore: []
+        action: NONE
+      close:
+        id: ARROW
+        slot: 49
+        name: " &8[&c Back &8]"
+        lore:
+          - "&7"
+          - "&8» &7Click to back!"
+        action: OPEN_MENU
+        menu: edit
+  edit-members:
+    title: "&7ProtectionStone Members Menu"
+    rows: 6
+    # This item is used to show all members of the ProtectionStone
+    members:
+      id: PLAYER_HEAD
+      url: player
+      name: " &8[&b Member &a%player% &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Click to edit &b%player% &7!"
+        - "&7"
+      slots:
+        - 10-16
+        - 19-25
+        - 28-34
+        - 37-43
+    # This item is used to add a new member to the ProtectionStone
+    add-member:
+      id: PLAYER_HEAD
+      url: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTc3YmI2NmZjNzNhOTdjZWZjYjNhNGJmZGNjYjEyMjgxZjQ0ZGQzMjZjY2QwZmYzOWQ0N2U5ODViZmVmZjM0MyJ9fX0="
+      slot: 50
+      name: " &8[&a Add Member &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to add a new member!"
+    custom:
+      glass:
+        id: BLACK_STAINED_GLASS_PANE
+        slots:
+          - 0-9
+          - 17-18
+          - 26-27
+          - 35-36
+          - 44-49
+          - 51-53
+        name: ""
+        lore: []
+        action: NONE
+      close:
+        id: ARROW
+        slot: 49
+        name: " &8[&c Back &8]"
+        lore:
+          - "&7"
+          - "&8» &7Click to back!"
+        action: OPEN_MENU
+        menu: edit
+  ban:
+    title: "&7ProtectionStone Ban Menu"
+    rows: 6
+    # This item is used to show all banned players from the ProtectionStone
+    banned-players:
+      id: PLAYER_HEAD
+      url: player
+      name: " &8[&c Banned &a%player% &8]"
+      lore:
+        - "&7"
+        - "&8&l| &7Click to edit &c%player% &7!"
+        - "&7"
+      slots:
+        - 10-16
+        - 19-25
+        - 28-34
+        - 37-43
+    # This item is used to ban a new player from the ProtectionStone
+    add-ban:
+      id: PLAYER_HEAD
+      url: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTc3YmI2NmZjNzNhOTdjZWZjYjNhNGJmZGNjYjEyMjgxZjQ0ZGQzMjZjY2QwZmYzOWQ0N2U5ODViZmVmZjM0MyJ9fX0="
+      slot: 50
+      name: " &8[&a Ban Player &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to ban a new player!"
+    custom:
+      glass:
+        id: BLACK_STAINED_GLASS_PANE
+        slots:
+          - 0-9
+          - 17-18
+          - 26-27
+          - 35-36
+          - 44-49
+          - 51-53
+        name: ""
+        lore: []
+        action: NONE
+      close:
+        id: ARROW
+        slot: 49
+        name: " &8[&c Back &8]"
+        lore:
+          - "&7"
+          - "&8» &7Click to back!"
+        action: OPEN_MENU
+        menu: edit
+  edit-player:
+    title: "&7Edit &a%player% &7Menu"
+    rows: 6
+    # This item is used to ban a player from the ProtectionStone
+    ban:
+      id: BARRIER
+      name: " &8[&c Ban &a%player% &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to ban &a%player% &7!"
+      slot: 20
+    # This item is used to kick a player from the ProtectionStone (removes them from members)
+    kick:
+      id: WRITABLE_BOOK
+      name: " &8[&c Kick &a%player% &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to kick &a%player% &7!"
+      slot: 21
+    # This item is used to remove a player from the ProtectionStone (removes them from owners or members)
+    remove:
+      id: PLAYER_HEAD
+      url: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTRjNDhhNjYxYTUyNGIwMTQyN2ZkMWMzNGFlMDcwNzZjNTcwYTA3MTFmMGFiNzAzNzM3NTAxYWYzNzIzMTYzMSJ9fX0="
+      name: " &8[&c Remove &a%player% &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to remove &a%player% &7!"
+      slot: 22
+    # This will show in the edit-members to promote a player to owner
+    owner:
+      id: PLAYER_HEAD
+      url: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYjg4NjdjMWM1ODI2Yjk5NDcwOTUzYWM4OTA4MDI4ZWM4OWI1YzZjMTRkMWJkOGI1ZDM2NmM2ZWFiODhjZmUwYSJ9fX0="
+      name: " &8[&c Make &a%player% &cOwner &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to make &a%player% &can owner&7!"
+      slot: 23
+    # This will show in the edit-owner to demote a player to member
+    member:
+      id: PLAYER_HEAD
+      name: " &8[&c Make &a%player% &cMember &8]"
+      lore:
+        - "&7"
+        - "&8» &7Click to make &a%player% &ca member&7!"
+      slot: 24
+    custom:
+      glass:
+        id: BLACK_STAINED_GLASS_PANE
+        slots:
+          - 0-9
+          - 17-18
+          - 26-27
+          - 35-36
+          - 44-53
+        name: ""
+        lore: []
+        action: NONE
+      info:
+        id: BOOK
+        name: " &8[&7 &aProtectionStones &7info &8]"
+        lore:
+          - "&7"
+          - "&8&l| &7Name: &b%name%"
+          - "&8&l| &7World: &a%world%"
+          - "&8&l| &7Location: &aX:&f%x% &aY:&f%y% &aZ:&f%z%"
+          - "&8&l| &7Owners: &c%owners%"
+          - "&8&l| &7Members: &b%members%"
+          - "&7"
+        slot: 4
+        acton: NONE
+      close:
+        id: ARROW
+        slot: 49
+        name: " &8[ &cBack &8]"
+        lore:
+          - "&7"
+          - "&8» &7Click to back!"
+        action: OPEN_MENU
+        menu: edit

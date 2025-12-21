@@ -1,0 +1,64 @@
+messages:
+  # Prefix for all messages
+  prefix: "&8[&bPS Menu&8] » "
+  reload: "&aPlugin reloaded"
+  # General no permission message
+  no-permission: "&cYou don't have permission"
+  # General player only command message
+  player-only: "&cOnly players can execute this command"
+  # player not found message
+  player-not-found: "&cPlayer not found"
+  not-in-region: "&cYou are not in a ProtectionStone region!"
+  # kick messages
+  kicked-success: "&aYou have successfully kicked &f%player% &afrom your ProtectionStone!"
+  kick-self: "&cYou cannot kick yourself!"
+  kick-message: "&cYou have been kicked from the ProtectionStone by &f%player%&c!"
+  # Edit menu messages
+  edit-menu:
+    # rename messages
+    rename-success: "&aYou have successfully renamed your ProtectionStone to &f%name%&a!"
+    rename-cancel: "&cYou have cancelled the renaming of your ProtectionStone!"
+    rename-prompt: "&ePlease enter the new name for your ProtectionStone: (Type: cancel to cancel renaming)"
+    # flags messages
+    flag-updated: "&aThe value of &e%flag% &ahas been updated to &f%value% &afor %group%&a!"
+    flag-allow: "&aAllow"
+    flag-deny: "&cDeny"
+    flag-none: "&7Non Set"
+    flag-groups:
+      all: "&eEveryone"
+      members: "&aMembers"
+      owners: "&cOwners"
+      nonmembers: "&2Non-Members"
+      nonowners: "&4Non-Owners"
+    # owners messages
+    owner-add-success: "&aYou have successfully added &f%player% &ato the owners of your ProtectionStone!"
+    owner-remove-success: "&aYou have successfully removed &f%player% &afrom the owners of your ProtectionStone!"
+    owner-already: "&c%player% is already an owner of your ProtectionStone!"
+    owner-not: "&c%player% is not an owner of your ProtectionStone!"
+    owner-prompt: "&ePlease enter the name of the player you want to add as an owner:"
+    # members messages
+    member-add-success: "&aYou have successfully added &f%player% &ato the members of your ProtectionStone!"
+    member-remove-success: "&aYou have successfully removed &f%player% &afrom the members of your ProtectionStone!"
+    member-already: "&c%player% is already a member of your ProtectionStone!"
+    member-not: "&c%player% is not a member of your ProtectionStone!"
+    member-prompt: "&ePlease enter the name of the player you want to add as a member:"
+    # visibility messages
+    visibility-on: "&aYou have enabled the visibility of your ProtectionStone!"
+    visibility-off: "&cYou have disabled the visibility of your ProtectionStone!"
+    # ban messages
+    ban-add-success: "&aYou have successfully banned &f%player% &afrom your ProtectionStone!"
+    ban-remove-success: "&aYou have successfully unbanned &f%player% &afrom your ProtectionStone!"
+    ban-already: "&c%player% is already banned from your ProtectionStone!"
+    ban-not: "&c%player% is not banned from your ProtectionStone!"
+    ban-prompt: "&ePlease enter the name of the player you want to ban:"
+    banned-message: "&cYou are banned from this ProtectionStone!"
+    ban-module-disabled: "&cThe ban module is disabled!"
+    ban-list-header: "&7Banned players:"
+    ban-list-empty: "&7No players are banned from this ProtectionStone."
+    ban-list-entry: "&8- &f%player%"
+    ban-self: "&cYou cannot ban yourself!"
+    # player editing messages
+    player-self: "&cYou cannot edit yourself!"
+    player-promoted-success: "&aYou have successfully promoted &f%player% &ato an owner of your ProtectionStone!"
+    player-demoted-success: "&aYou have successfully demoted &f%player% &ato a member of your ProtectionStone!"
+

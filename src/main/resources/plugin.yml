@@ -1,0 +1,6 @@
+name: ProtectionStonesMenu
+version: '1.0-SNAPSHOT'
+main: dev.loststr1ng.protectionStonesMenu.ProtectionStonesMenu
+api-version: '1.18'
+depend: [WorldGuard, ProtectionStones]
+
