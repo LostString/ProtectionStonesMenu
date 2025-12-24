@@ -34,8 +34,8 @@ public class PSUtils {
         value = String.join(value, uuid+";");
         if(isBanned(region, uuid)) return false;
         protectedRegion.setFlag(ProtectionStonesMenu.bannedPlayers, value);
-        region.removeOwner(java.util.UUID.fromString(uuid));
-        region.removeMember(java.util.UUID.fromString(uuid));
+        region.removeOwner(UUID.fromString(uuid));
+        region.removeMember(UUID.fromString(uuid));
         return true;
     }
 

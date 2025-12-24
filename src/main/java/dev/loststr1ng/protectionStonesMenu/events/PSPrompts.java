@@ -22,119 +22,185 @@ public class PSPrompts implements Listener {
     }
 
     @EventHandler
-    public void onChat(AsyncPlayerChatEvent event){
+    public void onChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
+        UUID playerUUID = player.getUniqueId();
         String message = event.getMessage();
         Utils utils = plugin.getUtils();
-        if(plugin.renamePrompts.containsKey(player.getUniqueId())){
+
+        if (plugin.renamePrompts.containsKey(playerUUID)) {
             event.setCancelled(true);
-            if(message.equalsIgnoreCase("cancel")){
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    plugin.getInventoryManager().openPSEditMenu(player, plugin.renamePrompts.get(player.getUniqueId()));
-                    plugin.renamePrompts.remove(player.getUniqueId());
-                });
-
-                utils.sendMessage(player, plugin.getMessageConfig().getEditRenameCancel(), true);
-                return;
-            }
-            if(message.equalsIgnoreCase("none")){
-                PSRegion region = plugin.renamePrompts.get(player.getUniqueId());
-                region.setName(null);
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    plugin.getInventoryManager().openPSEditMenu(player, plugin.renamePrompts.get(player.getUniqueId()));
-                    plugin.renamePrompts.remove(player.getUniqueId());
-                });
-
-                utils.sendMessage(player, plugin.getMessageConfig().getEditRenameSuccess()
-                        .replaceAll("%name%", region.getId()), true);
-                return;
-            }
-            PSRegion region = plugin.renamePrompts.get(player.getUniqueId());
-            region.setName(message);
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                plugin.getInventoryManager().openPSEditMenu(player, plugin.renamePrompts.get(player.getUniqueId()));
-                plugin.renamePrompts.remove(player.getUniqueId());
-            });
-            utils.sendMessage(player, plugin.getMessageConfig().getEditRenameSuccess()
-                    .replaceAll("%name%", region.getName()), true);
+            handleRename(player, message, utils);
             return;
-        } else if (plugin.ownerPrompts.containsKey(player.getUniqueId())) {
-            event.setCancelled(true);
-            String playerToAdd = message.split(" ")[0];
-            UUID uuid = UUIDCache.getUUIDFromName(playerToAdd);
-            if(uuid == null){
-                utils.sendMessage(player, plugin.getMessageConfig().getPlayerNotFound()
-                        .replaceAll("%player%", playerToAdd), true);
-            }else {
-                String realName = UUIDCache.getNameFromUUID(uuid);
-                PSRegion region = plugin.ownerPrompts.get(player.getUniqueId());
-                if (region.isOwner(uuid)) {
-                    utils.sendMessage(player, plugin.getMessageConfig().getEditOwnerAlready()
-                            .replaceAll("%player%", realName), true);
-                } else {
-                    region.addOwner(uuid);
-                    utils.sendMessage(player, plugin.getMessageConfig().getEditOwnerAddSuccess()
-                            .replaceAll("%player%", realName), true);
-                }
-            }
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                plugin.getInventoryManager().openPSOwnersMenu(player, plugin.ownerPrompts.get(player.getUniqueId()));
-                plugin.ownerPrompts.remove(player.getUniqueId());
-            });
-        }else if (plugin.memberPrompts.containsKey(player.getUniqueId())) {
-            event.setCancelled(true);
-            String playerToAdd = message.split(" ")[0];
-            UUID uuid = UUIDCache.getUUIDFromName(playerToAdd);
-            if(uuid == null){
-                utils.sendMessage(player, plugin.getMessageConfig().getPlayerNotFound()
-                        .replaceAll("%player%", playerToAdd), true);
-            }else {
-                String realName = UUIDCache.getNameFromUUID(uuid);
-                PSRegion region = plugin.memberPrompts.get(player.getUniqueId());
-                if (region.isMember(uuid)) {
-                    utils.sendMessage(player, plugin.getMessageConfig().getEditMemberAlready()
-                            .replaceAll("%player%", realName), true);
-                } else {
-                    region.addMember(uuid);
-                    utils.sendMessage(player, plugin.getMessageConfig().getEditMemberAddSuccess()
-                            .replaceAll("%player%", realName), true);
-                }
-            }
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                plugin.getInventoryManager().openPSMembersMenu(player, plugin.memberPrompts.get(player.getUniqueId()));
-                plugin.memberPrompts.remove(player.getUniqueId());
-            });
-        }else if (plugin.banPrompts.containsKey(player.getUniqueId())) {
-            event.setCancelled(true);
-            String playerToAdd = message.split(" ")[0];
-            UUID uuid = UUIDCache.getUUIDFromName(playerToAdd);
-            if(uuid == null){
-                utils.sendMessage(player, plugin.getMessageConfig().getPlayerNotFound()
-                        .replaceAll("%player%", playerToAdd), true);
-            }else {
-                String realName = UUIDCache.getNameFromUUID(uuid);
-                PSRegion region = plugin.banPrompts.get(player.getUniqueId());
-                if(player.getUniqueId().equals(uuid)){
-                    utils.sendMessage(player, plugin.getMessageConfig().getBanSelf(), true);
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        plugin.getInventoryManager().openPSBansMenu(player, plugin.banPrompts.get(player.getUniqueId()));
-                        plugin.banPrompts.remove(player.getUniqueId());
-                    });
-                    return;
-                }
-                if (PSUtils.isBanned(region, uuid.toString())) {
-                    utils.sendMessage(player, plugin.getMessageConfig().getBanAlready()
-                            .replaceAll("%player%", realName), true);
-                } else {
-                    PSUtils.banPlayer(region, uuid.toString());
-                    utils.sendMessage(player, plugin.getMessageConfig().getBanAddSuccess()
-                            .replaceAll("%player%", realName), true);
-                }
-            }
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                plugin.getInventoryManager().openPSBansMenu(player, plugin.banPrompts.get(player.getUniqueId()));
-                plugin.banPrompts.remove(player.getUniqueId());
-            });
         }
+
+        if (plugin.ownerPrompts.containsKey(playerUUID)) {
+            event.setCancelled(true);
+            handleOwner(player, message, utils);
+            return;
+        }
+
+        if (plugin.memberPrompts.containsKey(playerUUID)) {
+            event.setCancelled(true);
+            handleMember(player, message, utils);
+            return;
+        }
+
+        if (plugin.banPrompts.containsKey(playerUUID)) {
+            event.setCancelled(true);
+            handleBan(player, message, utils);
+        }
+    }
+
+
+    private void handleRename(Player player, String message, Utils utils) {
+        UUID uuid = player.getUniqueId();
+        PSRegion region = plugin.renamePrompts.get(uuid);
+
+        if (message.equalsIgnoreCase("cancel")) {
+            reopenRenameMenu(player, region);
+            utils.sendMessage(player, plugin.getMessageConfig().getEditRenameCancel(), true);
+            return;
+        }
+
+        if (message.equalsIgnoreCase("none")) {
+            region.setName(null);
+            reopenRenameMenu(player, region);
+            utils.sendMessage(
+                    player,
+                    plugin.getMessageConfig().getEditRenameSuccess()
+                            .replace("%name%", region.getId()),
+                    true
+            );
+            return;
+        }
+
+        region.setName(message);
+        reopenRenameMenu(player, region);
+        utils.sendMessage(
+                player,
+                plugin.getMessageConfig().getEditRenameSuccess()
+                        .replace("%name%", region.getName()),
+                true
+        );
+    }
+
+    private void reopenRenameMenu(Player player, PSRegion region) {
+        plugin.getScheduler().runTask(player, () -> {
+            plugin.getInventoryManager().openPSEditMenu(player, region);
+            plugin.renamePrompts.remove(player.getUniqueId());
+        });
+    }
+
+
+    private void handleOwner(Player player, String message, Utils utils) {
+        UUID uuid = player.getUniqueId();
+        PSRegion region = plugin.ownerPrompts.get(uuid);
+
+        UUID targetUUID = getUUIDFromMessage(player, message, utils);
+        if (targetUUID == null) return;
+
+        String name = UUIDCache.getNameFromUUID(targetUUID);
+
+        if (region.isOwner(targetUUID)) {
+            utils.sendMessage(player,
+                    plugin.getMessageConfig().getEditOwnerAlready().replace("%player%", name),
+                    true
+            );
+        } else {
+            region.addOwner(targetUUID);
+            utils.sendMessage(player,
+                    plugin.getMessageConfig().getEditOwnerAddSuccess().replace("%player%", name),
+                    true
+            );
+        }
+
+        plugin.getScheduler().runTask(player, () -> {
+            plugin.getInventoryManager().openPSOwnersMenu(player, region);
+            plugin.ownerPrompts.remove(uuid);
+        });
+    }
+
+
+    private void handleMember(Player player, String message, Utils utils) {
+        UUID uuid = player.getUniqueId();
+        PSRegion region = plugin.memberPrompts.get(uuid);
+
+        UUID targetUUID = getUUIDFromMessage(player, message, utils);
+        if (targetUUID == null) return;
+
+        String name = UUIDCache.getNameFromUUID(targetUUID);
+
+        if (region.isMember(targetUUID)) {
+            utils.sendMessage(player,
+                    plugin.getMessageConfig().getEditMemberAlready().replace("%player%", name),
+                    true
+            );
+        } else {
+            region.addMember(targetUUID);
+            utils.sendMessage(player,
+                    plugin.getMessageConfig().getEditMemberAddSuccess().replace("%player%", name),
+                    true
+            );
+        }
+
+        plugin.getScheduler().runTask(player, () -> {
+            plugin.getInventoryManager().openPSMembersMenu(player, region);
+            plugin.memberPrompts.remove(uuid);
+        });
+    }
+
+
+    private void handleBan(Player player, String message, Utils utils) {
+        UUID uuid = player.getUniqueId();
+        PSRegion region = plugin.banPrompts.get(uuid);
+
+        UUID targetUUID = getUUIDFromMessage(player, message, utils);
+        if (targetUUID == null) return;
+
+        if (uuid.equals(targetUUID)) {
+            utils.sendMessage(player, plugin.getMessageConfig().getBanSelf(), true);
+            reopenBanMenu(player, region);
+            return;
+        }
+
+        String name = UUIDCache.getNameFromUUID(targetUUID);
+
+        if (PSUtils.isBanned(region, targetUUID.toString())) {
+            utils.sendMessage(player,
+                    plugin.getMessageConfig().getBanAlready().replace("%player%", name),
+                    true
+            );
+        } else {
+            PSUtils.banPlayer(region, targetUUID.toString());
+            utils.sendMessage(player,
+                    plugin.getMessageConfig().getBanAddSuccess().replace("%player%", name),
+                    true
+            );
+        }
+
+        reopenBanMenu(player, region);
+    }
+
+    private void reopenBanMenu(Player player, PSRegion region) {
+        plugin.getScheduler().runTask(player, () -> {
+            plugin.getInventoryManager().openPSBansMenu(player, region);
+            plugin.banPrompts.remove(player.getUniqueId());
+        });
+    }
+
+
+    private UUID getUUIDFromMessage(Player player, String message, Utils utils) {
+        String name = message.split(" ")[0];
+        UUID uuid = UUIDCache.getUUIDFromName(name);
+
+        if (uuid == null) {
+            utils.sendMessage(player,
+                    plugin.getMessageConfig().getPlayerNotFound().replace("%player%", name),
+                    true
+            );
+        }
+
+        return uuid;
     }
 }

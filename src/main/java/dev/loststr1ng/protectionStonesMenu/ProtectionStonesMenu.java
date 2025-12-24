@@ -8,6 +8,7 @@ import com.sk89q.worldguard.protection.regions.RegionContainer;
 import dev.espi.protectionstones.PSCommand;
 import dev.espi.protectionstones.PSRegion;
 import dev.espi.protectionstones.ProtectionStones;
+import dev.loststr1ng.FoliaManager;
 import dev.loststr1ng.protectionStonesMenu.commands.MainCommand;
 import dev.loststr1ng.protectionStonesMenu.commands.protectionstones.argBanCommand;
 import dev.loststr1ng.protectionStonesMenu.commands.protectionstones.argBanListCommand;
@@ -21,6 +22,7 @@ import dev.loststr1ng.protectionStonesMenu.events.PSJoin;
 import dev.loststr1ng.protectionStonesMenu.managers.InventoryManager;
 import dev.loststr1ng.protectionStonesMenu.utils.MessageUtils;
 import dev.loststr1ng.protectionStonesMenu.utils.Metrics;
+import dev.loststr1ng.protectionStonesMenu.utils.SchedulerUtil;
 import dev.loststr1ng.protectionStonesMenu.utils.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -52,12 +54,23 @@ public final class ProtectionStonesMenu extends JavaPlugin {
     public final Map<UUID, PSRegion> banPrompts = new HashMap<>();
     public static StringFlag bannedPlayers;
     private ProtectionStones protectionStones;
+    private SchedulerUtil scheduler;
+    private FoliaManager foliaManager;
+    public boolean folia = false;
 
     public String prefix = "&8[&aProtectionStones &8| &bMenu &8] &9";
 
     @Override
     public void onEnable() {
         PluginManager pm = Bukkit.getPluginManager();
+        // verify if is folia
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            folia = true;
+        } catch (ClassNotFoundException ignored) {
+            folia = false;
+        }
+        this.scheduler = new SchedulerUtil(this);
         this.messageConfig = new MessageConfig(this);
         this.utils = new Utils(this);
         this.mainConfig = new MainConfig(this);
@@ -84,6 +97,10 @@ public final class ProtectionStonesMenu extends JavaPlugin {
         registerEvents();
         container = WorldGuard.getInstance().getPlatform().getRegionContainer();
 
+        if(isFolia()){
+            utils.log("&aFolia detected, loading foliaManager..");
+            this.foliaManager = new FoliaManager(this);
+        }
         if(mainConfig.isBanModuleEnabled()){
             utils.log("&9Ban Module enabled, registering commands");
             protectionStones.addCommandArgument(new argBanCommand(this));
@@ -98,6 +115,7 @@ public final class ProtectionStonesMenu extends JavaPlugin {
         if(registerCommand()){
             utils.log("&aMain Command registered");
         }
+        
         utils.log("&bPlugin loaded successfully");
 
         int pluginId = 28431;
@@ -114,6 +132,10 @@ public final class ProtectionStonesMenu extends JavaPlugin {
         mainConfig.clearCache();
         renamePrompts.clear();
         container = null;
+    }
+
+    public SchedulerUtil getScheduler() {
+        return scheduler;
     }
 
     public boolean registerCommand(){
@@ -188,5 +210,13 @@ public final class ProtectionStonesMenu extends JavaPlugin {
         } catch (Exception ex) {
             return "&8[&aProtectionStonesMenu&8] &cError while checking update.";
         }
+    }
+
+    public FoliaManager getFoliaManager() {
+        return foliaManager;
+    }
+
+    public boolean isFolia() {
+        return folia;
     }
 }

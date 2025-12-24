@@ -119,16 +119,16 @@ public class InventoryManager {
                 gui.setItem(inventoryItem.slots, guiItem);
             }
             if(inventoryItem.item.equalsIgnoreCase("ps-item")){
-                PSPlayer psPlayer = PSPlayer.fromPlayer(player);
                 List<Integer> slots = new ArrayList<>(inventoryItem.slots);
-                for(PSRegion psRegion: psPlayer.getPSRegions(player.getWorld(), true)){
+                for(PSRegion psRegion: utils.getRegions(player)){
                     GuiItem guiItem = utils.createItemBuilder(inventoryItem, psRegion);
                     guiItem.setAction(inventoryClickEvent -> {
                         inventoryClickEvent.setCancelled(true);
 
                         // TP LOGIC
                         if(inventoryClickEvent.isLeftClick()){
-                            player.teleport(psRegion.getHome());
+                            utils.teleportPlayer(player, psRegion.getHome());
+                            gui.close(player);
                             return;
                         }
                         // EDIT LOGIC
@@ -459,7 +459,10 @@ public class InventoryManager {
         for(Utils.InventoryItem inventoryItem: mainConfig.getEditBansGuiItems()){
             if(inventoryItem.item.equalsIgnoreCase("banned-players")){
                 List<Integer> slots = new ArrayList<>(inventoryItem.slots);
+                Iterator<Integer> integerIterator = slots.iterator();
                 for(String bannedUUID: PSUtils.getBannedPlayers(region)){
+                    if(!integerIterator.hasNext()) break;
+                    int slot = integerIterator.next();
                     UUID uuid = UUID.fromString(bannedUUID);
                     String name = UUIDCache.getNameFromUUID(uuid);
                     GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, uuid);
@@ -476,13 +479,7 @@ public class InventoryManager {
                             }
                         }
                     });
-                    for(int slot: inventoryItem.slots){
-                        if(slots.contains(slot)){
-                            slots.remove(slot);
-                            gui.setItem(slot, guiItem);
-                            break;
-                        }
-                    }
+                    gui.setItem(slot, guiItem);
                 }
             }
             if(inventoryItem.item.equalsIgnoreCase("add-ban")){

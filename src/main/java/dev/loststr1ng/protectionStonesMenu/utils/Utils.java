@@ -12,10 +12,7 @@ import dev.triumphteam.gui.builder.item.SkullBuilder;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
+import org.bukkit.*;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -81,6 +78,15 @@ public class Utils {
         return new InventoryItem(configuration, path, s);
     }
 
+    public List<PSRegion> getRegions(Player player){
+        List<PSRegion> regions = new ArrayList<>();
+        PSPlayer psPlayer = PSPlayer.fromPlayer(player);
+        for(World world: Bukkit.getWorlds()){
+            regions.addAll(psPlayer.getPSRegions(world, true));
+        }
+        return regions;
+    }
+
     public List<String> parsePSVar(List<String> s, PSRegion region){
         List<String> parsed = new ArrayList<>();
         for(String line: s){
@@ -97,37 +103,37 @@ public class Utils {
                 .replaceAll("%z%", String.valueOf(location.getBlockZ()))
                 .replaceAll("%name%", name)
                 .replaceAll("%world%", region.getWorld().getName());
-        String members = "";
+        StringBuilder members = new StringBuilder();
         for(UUID uuid: region.getMembers()){
             OfflinePlayer member = Bukkit.getOfflinePlayer(uuid);
             if(region.getMembers().indexOf(uuid) == (region.getMembers().size() - 1) ){
-                members = String.join(members, member.getName());
+                members.append(member.getName());
             }else {
-                members = String.join(members, " "+member.getName()+",");
+                members.append(" ").append(member.getName()).append(",");
             }
         }
-        parsed = parsed.replaceAll("%members%", members);
-        String owners = "";
+        parsed = parsed.replaceAll("%members%", members.toString());
+        StringBuilder owners = new StringBuilder();
         for(UUID uuid: region.getOwners()){
             OfflinePlayer member = Bukkit.getOfflinePlayer(uuid);
             if(region.getMembers().indexOf(uuid) == (region.getMembers().size() - 1) ){
-                owners = String.join(owners, member.getName());
+                owners.append(member.getName());
             }else {
-                owners = String.join(owners, " "+member.getName()+",");
+                owners.append(" ").append(member.getName()).append(",");
             }
         }
-        parsed = parsed.replaceAll("%owners%", owners);
-        String banned = "";
+        parsed = parsed.replaceAll("%owners%", owners.toString());
+        StringBuilder banned = new StringBuilder();
         for(String uuid: PSUtils.getBannedPlayers(region)){
             UUID bannedUUID = UUID.fromString(uuid);
             OfflinePlayer bannedPlayer = Bukkit.getOfflinePlayer(bannedUUID);
             if(PSUtils.getBannedPlayers(region).indexOf(uuid) == (PSUtils.getBannedPlayers(region).size() - 1) ){
-                banned = String.join(banned, bannedPlayer.getName());
+                banned.append(bannedPlayer.getName());
             }else {
-                banned = String.join(banned, " "+bannedPlayer.getName()+",");
+                banned.append(" ").append(bannedPlayer.getName()).append(",");
             }
         }
-        parsed = parsed.replaceAll("%banned%", banned);
+        parsed = parsed.replaceAll("%banned%", banned.toString());
         return parsed;
     }
 
@@ -156,44 +162,47 @@ public class Utils {
         return slots;
     }
 
+    @SuppressWarnings("deprecation")
     public GuiItem createItemBuilder(InventoryItem inventoryItem){
         GuiItem guiItem;
         Material material = Material.getMaterial(inventoryItem.id);
         if(material == null) material = Material.BARRIER;
         if(material.name().equalsIgnoreCase("PLAYER_HEAD")){
             guiItem = ItemBuilder.skull()
-                    .name(MessageUtils.getColoredMessage(inventoryItem.name))
-                    .lore(MessageUtils.components(inventoryItem.lore))
+                    .setName(MessageUtils.getLegacy(inventoryItem.name))
+                    .setLore(MessageUtils.getColoredList(inventoryItem.lore))
                     .texture(inventoryItem.urlSkull)
                     .asGuiItem();
         }else {
             guiItem = ItemBuilder.from(material)
-                    .name(MessageUtils.getColoredMessage(inventoryItem.name))
-                    .lore(MessageUtils.components(inventoryItem.lore))
+                    .setName(MessageUtils.getLegacy(inventoryItem.name))
+                    .setLore(MessageUtils.getColoredList(inventoryItem.lore))
                     .asGuiItem();
         }
         return guiItem;
     }
 
+    @SuppressWarnings("deprecation")
     public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion){
         GuiItem guiItem;
         Material material = Material.getMaterial(inventoryItem.id);
         if(material == null) material = Material.BARRIER;
         if(material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null){
             guiItem = ItemBuilder.skull()
-                    .name(MessageUtils.getColoredMessage(parsePSVar(inventoryItem.name, psRegion)))
-                    .lore(MessageUtils.components(parsePSVar(inventoryItem.lore, psRegion)))
+                    .setName(MessageUtils.getLegacy(parsePSVar(inventoryItem.name, psRegion)))
+                    .setLore(MessageUtils.getColoredList(parsePSVar(inventoryItem.lore, psRegion)))
                     .texture(inventoryItem.urlSkull)
                     .asGuiItem();
         }else {
             guiItem = ItemBuilder.from(material)
-                    .name(MessageUtils.getColoredMessage(parsePSVar(inventoryItem.name, psRegion)))
-                    .lore(MessageUtils.components(parsePSVar(inventoryItem.lore, psRegion)))
+                    .setName(MessageUtils.getLegacy(parsePSVar(inventoryItem.name, psRegion)))
+                    .setLore(MessageUtils.getColoredList(parsePSVar(inventoryItem.lore, psRegion)))
                     .asGuiItem();
         }
         return guiItem;
     }
 
+    @SuppressWarnings("deprecation")
     public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, UUID player){
 
         GuiItem guiItem;
@@ -210,29 +219,30 @@ public class Utils {
         if(material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null){
             if(inventoryItem.urlSkull.equalsIgnoreCase("player")){
                 guiItem = ItemBuilder.skull()
-                        .name(MessageUtils.getColoredMessage(name))
-                        .lore(MessageUtils.components(newLore))
+                        .setName(MessageUtils.getLegacy(name))
+                        .setLore(MessageUtils.getColoredList(newLore))
                         .owner(offlinePlayer)
                         .flags(ItemFlag.values())
                         .asGuiItem();
             }else {
                 guiItem = ItemBuilder.skull()
-                        .name(MessageUtils.getColoredMessage(name))
-                        .lore(MessageUtils.components(newLore))
+                        .setName(MessageUtils.getLegacy(name))
+                        .setLore(MessageUtils.getColoredList(newLore))
                         .texture(inventoryItem.urlSkull)
                         .flags(ItemFlag.values())
                         .asGuiItem();
             }
         }else {
             guiItem = ItemBuilder.from(material)
-                    .name(MessageUtils.getColoredMessage(name))
-                    .lore(MessageUtils.components(newLore))
+                    .setName(MessageUtils.getLegacy(name))
+                    .setLore(MessageUtils.getColoredList(newLore))
                     .flags(ItemFlag.values())
                     .asGuiItem();
         }
         return guiItem;
     }
 
+    @SuppressWarnings("deprecation")
     public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, String flag){
 
         GuiItem guiItem;
@@ -246,15 +256,15 @@ public class Utils {
         if(material == null) material = Material.BARRIER;
         if(material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null){
             guiItem = ItemBuilder.skull()
-                    .name(MessageUtils.getColoredMessage(getFlag(name, psRegion, flag)))
-                    .lore(MessageUtils.components(newLore))
+                    .setName(MessageUtils.getLegacy(getFlag(name, psRegion, flag)))
+                    .setLore(MessageUtils.getColoredList(newLore))
                     .texture(inventoryItem.urlSkull)
                     .flags(ItemFlag.values())
                     .asGuiItem();
         }else {
             guiItem = ItemBuilder.from(material)
-                    .name(MessageUtils.getColoredMessage(getFlag(name, psRegion, flag)))
-                    .lore(MessageUtils.components(newLore))
+                    .setName(MessageUtils.getLegacy(getFlag(name, psRegion, flag)))
+                    .setLore(MessageUtils.getColoredList(newLore))
                     .flags(ItemFlag.values())
                     .asGuiItem();
         }
@@ -382,5 +392,13 @@ public class Utils {
 
     public void log(String message){
         Bukkit.getConsoleSender().sendMessage(MessageUtils.getLegacy(plugin.prefix + message));
+    }
+
+    public void teleportPlayer(Player player, Location location){
+        if(plugin.isFolia()){
+            plugin.getFoliaManager().teleport(player, location);
+            return;
+        }
+        player.teleport(location);
     }
 }
