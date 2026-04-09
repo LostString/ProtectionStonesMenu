@@ -20,6 +20,7 @@ import dev.loststr1ng.protectionStonesMenu.events.PSPrompts;
 import dev.loststr1ng.protectionStonesMenu.events.PsItemClick;
 import dev.loststr1ng.protectionStonesMenu.events.PSJoin;
 import dev.loststr1ng.protectionStonesMenu.managers.InventoryManager;
+import dev.loststr1ng.protectionStonesMenu.models.PromptModel;
 import dev.loststr1ng.protectionStonesMenu.utils.MessageUtils;
 import dev.loststr1ng.protectionStonesMenu.utils.Metrics;
 import dev.loststr1ng.protectionStonesMenu.utils.SchedulerUtil;
@@ -27,12 +28,15 @@ import dev.loststr1ng.protectionStonesMenu.utils.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
@@ -48,10 +52,7 @@ public final class ProtectionStonesMenu extends JavaPlugin {
     public RegionContainer container;
     private Utils utils;
     private InventoryManager inventoryManager;
-    public final Map<UUID, PSRegion> renamePrompts = new HashMap<>();
-    public final Map<UUID, PSRegion> ownerPrompts = new HashMap<>();
-    public final Map<UUID, PSRegion> memberPrompts = new HashMap<>();
-    public final Map<UUID, PSRegion> banPrompts = new HashMap<>();
+    public final Map<UUID, PromptModel> promptModelMap = new HashMap<>();
     public static StringFlag bannedPlayers;
     private ProtectionStones protectionStones;
     private SchedulerUtil scheduler;
@@ -98,7 +99,7 @@ public final class ProtectionStonesMenu extends JavaPlugin {
         container = WorldGuard.getInstance().getPlatform().getRegionContainer();
 
         if(isFolia()){
-            utils.log("&aFolia detected, loading foliaManager..");
+            utils.log("&aFolia detected, loading foliaManager...");
             this.foliaManager = new FoliaManager(this);
         }
         if(mainConfig.isBanModuleEnabled()){
@@ -125,13 +126,22 @@ public final class ProtectionStonesMenu extends JavaPlugin {
         if(message != null){
             Bukkit.getConsoleSender().sendMessage(MessageUtils.getLegacy(message));
         }
+
+        checkConfigUpdate();
     }
 
     @Override
     public void onDisable() {
         mainConfig.clearCache();
-        renamePrompts.clear();
+        promptModelMap.clear();
         container = null;
+
+    }
+
+    public void checkConfigUpdate(){
+        // CheckConfig
+
+
     }
 
     public SchedulerUtil getScheduler() {

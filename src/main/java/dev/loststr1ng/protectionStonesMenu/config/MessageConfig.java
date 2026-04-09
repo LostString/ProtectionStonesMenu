@@ -20,6 +20,12 @@ public class MessageConfig {
     private String kickSuccess;
     private String kickSelf;
     private String kickMessage;
+    private String teleporting;
+    private String teleported;
+    private String teleportCancelled;
+
+    private String valuePrompt;
+    private String usageMessage;
 
     // Edit Messages
     private String editRenameSuccess;
@@ -86,6 +92,11 @@ public class MessageConfig {
         kickSuccess = fileConfiguration.getString("messages.kicked-success");
         kickSelf = fileConfiguration.getString("messages.kick-self");
         kickMessage = fileConfiguration.getString("messages.kick-message");
+        valuePrompt = fileConfiguration.getString("messages.valuePrompt");
+        usageMessage = fileConfiguration.getString("messages.usageMessage");
+        teleported = fileConfiguration.getString("messages.teleported");
+        teleporting = fileConfiguration.getString("messages.teleporting");
+        teleportCancelled = fileConfiguration.getString("messages.teleportCancelled");
 
         // Edit Menu Messages
         ConfigurationSection editSection = fileConfiguration.getConfigurationSection("messages.edit-menu");
@@ -162,6 +173,12 @@ public class MessageConfig {
     }
     public String getKickMessage() {
         return kickMessage;
+    }
+    public String getValuePrompt() {
+        return valuePrompt;
+    }
+    public String getUsageMessage() {
+        return usageMessage;
     }
 
     // Getters (Edit Messages)
@@ -281,5 +298,18 @@ public class MessageConfig {
     }
     public String getReload() {
         return reload;
+    }
+    public String getTeleporting() {
+        return teleporting;
+    }
+    public String getTeleported() {
+        return teleported;
+    }
+    public String getTeleportCancelled() {
+        return teleportCancelled;
+    }
+
+    public ConfigModel getConfiguration(){
+        return configModel;
     }
 }

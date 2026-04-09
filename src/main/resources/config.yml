@@ -5,6 +5,11 @@ config:
   openOnClickBlock: true # open the menu wen player right-click the ProtectionStone Block
   openPSCommands: true # open the menus with /ps command?
 
+  # if this option is enabled, player need the permision protectionstones.<feature> to work, example, protectionstones.home
+  # and for others features, you can add, permission: "example.permission" for allow player to use the feature
+  usePermissions: false
+  teleportDelay: 5 # set 0 to disable
+
 command:
   name: "psmenu"
   permission: "psmenu.admin"
@@ -251,12 +256,12 @@ guis:
           - "&8» &7Click to toggle Explosions flag!"
           - "&8» &7Right-Click to change group!"
         slot: 23
-      flag-wither-damage:
+      flag-lighter:
         enable: true
-        id: WITHER_SKELETON_SKULL
-        name: " &8[&5 Wither Damage &8]"
+        id: FLINT_AND_STEEL
+        name: " &8[&5 Lighter &8]"
         lore:
-          - "&7&o(Toggles wither damage inside the ProtectionStone)"
+          - "&7&o(Toggles lighter inside the ProtectionStone)"
           - "&7"
           - "&8&l| &7Current Value: &b%value%"
           - "&8&l| &7Applied to: &b%group%"
@@ -264,6 +269,32 @@ guis:
           - "&8» &7Click to toggle Wither Damage flag!"
           - "&8» &7Right-Click to change group!"
         slot: 24
+      flag-build:
+        enable: true
+        id: DIAMOND_SHOVEL
+        name: " &8[&6 Build &8]"
+        slot: 29
+        lore:
+          - "&7&o(Toggles build inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Build flag!"
+          - "&8» &7Right-Click to change group!"
+      flag-use:
+        enable: true
+        id: IRON_AXE
+        name: " &8[&6 Use &8]"
+        slot: 30
+        lore:
+          - "&7&o(Toggles use doors, buttons, etc. inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Use flag!"
+          - "&8» &7Right-Click to change group!"
       flag-ghast-fireball:
         enable: true
         id: FIRE_CHARGE
@@ -277,6 +308,45 @@ guis:
           - "&8» &7Click to toggle Ghast Fireball flag!"
           - "&8» &7Right-Click to change group!"
         slot: 31
+      flag-damage-animals:
+        enable: true
+        id: DIAMOND_SWORD
+        name: " &8[&6 Damage Animals &8]"
+        slot: 32
+        lore:
+          - "&7&o(Toggles damage animals inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Damage Animals flag!"
+          - "&8» &7Right-Click to change group!"
+      flag-chest-access:
+        enable: true
+        id: CHEST
+        name: " &8[&6 Chess Access &8]"
+        slot: 33
+        lore:
+          - "&7&o(Toggles chess access inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle Chess Access flag!"
+          - "&8» &7Right-Click to change group!"
+      flag-tnt:
+        enable: true
+        id: TNT
+        name: " &8[&6 TNT &8]"
+        slot: 40
+        lore:
+          - "&7&o(Toggles tnt inside the ProtectionStone)"
+          - "&7"
+          - "&8&l| &7Current Value: &b%value%"
+          - "&8&l| &7Applied to: &b%group%"
+          - "&7"
+          - "&8» &7Click to toggle TNT flag!"
+          - "&8» &7Right-Click to change group!"
     custom:
       glass:
         id: BLACK_STAINED_GLASS_PANE

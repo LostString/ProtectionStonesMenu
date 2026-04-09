@@ -41,7 +41,8 @@ public class MainCommand extends Command {
                     return true;
                 }
             }else {
-                plugin.getUtils().sendMessage(player, "&cUsage: /"+ getName() + " menu/reload", true);
+                plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getUsageMessage().replace("%command%", getName())
+                        .replace("%arguments%", "menu/reload"), true);
                 return true;
             }
         }
@@ -54,7 +55,8 @@ public class MainCommand extends Command {
                 plugin.getMessageConfig().reloadConfig();
                 return true;
             }
-           sender.sendMessage( MessageUtils.getLegacy( plugin.getMessageConfig().getPrefix() + "&cUsage: /"+ getName() + " menu/reload"));
+           sender.sendMessage( MessageUtils.getLegacy( plugin.getMessageConfig().getPrefix() + plugin.getMessageConfig().getUsageMessage().replace("%command%", getName())
+                   .replace("%arguments%", "menu/reload")));
         }
         return false;
     }

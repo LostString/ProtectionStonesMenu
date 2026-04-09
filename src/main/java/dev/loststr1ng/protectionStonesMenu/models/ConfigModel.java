@@ -109,6 +109,8 @@ public class ConfigModel {
     public void setFirstTime(boolean firstTime) {
         isFirstTime = firstTime;
     }
+
+    public void checkUpdate(){}
 }
 
 

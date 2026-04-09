@@ -13,6 +13,12 @@ messages:
   kicked-success: "&aYou have successfully kicked &f%player% &afrom your ProtectionStone!"
   kick-self: "&cYou cannot kick yourself!"
   kick-message: "&cYou have been kicked from the ProtectionStone by &f%player%&c!"
+  valuePrompt: "&ePlease enter the new value of &7%flag%"
+  usageMessage: "&cUsage: &n/%command% %arguments%"
+  # teleport messages
+  teleporting: "&aTeleporting to your protection in &6%time%&a seconds... &C¡Don't move!"
+  teleported: "&aYou have been teleported to your protection"
+  teleportCancelled: "&cTeleport cancelled, You've moved"
   # Edit menu messages
   edit-menu:
     # rename messages

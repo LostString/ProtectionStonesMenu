@@ -1,11 +1,11 @@
 package dev.loststr1ng.protectionStonesMenu.utils;
 
-import dev.loststr1ng.FoliaManager;
 import dev.loststr1ng.protectionStonesMenu.ProtectionStonesMenu;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+
+import java.util.function.Consumer;
 
 public class SchedulerUtil {
 
@@ -21,6 +21,18 @@ public class SchedulerUtil {
         }else {
             Bukkit.getScheduler().runTask(plugin, task);
         }
+    }
+
+    public void runTaskTimer(Player player, Runnable task, long d, long t){
+        if(plugin.isFolia()){
+            plugin.getFoliaManager().runTaskTimer(player, scheduledTask -> {
+                task.run();
+            }, d,t);
+        }
+        else {
+            Bukkit.getScheduler().runTaskTimer(plugin, task, d,t);
+        }
+
     }
 
 }

@@ -48,7 +48,8 @@ public class argKickCommand implements PSCommandArg {
         Utils utils = plugin.getUtils();
         Player player = (Player) commandSender;
         if(args.length == 1){
-            utils.sendMessage(player, "&cUsage &n/ps kick <player>", true);
+            utils.sendMessage(player, plugin.getMessageConfig().getUsageMessage().replace("%command%", "ps")
+                    .replace("%arguments%", "kick <player>"), true);
             return true;
         }
         String playerName = args[1];
@@ -69,7 +70,7 @@ public class argKickCommand implements PSCommandArg {
             utils.sendMessage(player, plugin.getMessageConfig().getNoRegionFound(), true);
             return false;
         }
-        if(PSUtils.canEdit(region, player)){
+        if(PSUtils.canEdit(region, player) && !target.hasPermission("psmenu.admin")){
             PSUtils.kickPlayer(region, target);
             utils.sendMessage(player, plugin.getMessageConfig().getKickSuccess()
                     .replaceAll("%player%", name), true);

@@ -48,7 +48,8 @@ public class argUnBanCommand implements PSCommandArg {
         Utils utils = plugin.getUtils();
         Player player = (Player) commandSender;
         if(args.length == 1){
-            utils.sendMessage(player, "&cUsage &n/ps unban <player>", true);
+            utils.sendMessage(player, plugin.getMessageConfig().getUsageMessage().replace("%command%", "ps")
+                    .replace("%arguments%", "unban <player>"), true);
             return true;
         }
         String playerName = args[1];

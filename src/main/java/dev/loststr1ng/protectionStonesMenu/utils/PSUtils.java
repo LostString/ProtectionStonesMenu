@@ -12,6 +12,7 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,20 +21,25 @@ public class PSUtils {
 
     public static List<String> getBannedPlayers(PSRegion region){
         ProtectedRegion protectedRegion = region.getWGRegion();
+        List<String> players = new ArrayList<>();
         String value = protectedRegion.getFlag(ProtectionStonesMenu.bannedPlayers);
-        if(value == null) return new ArrayList<>();
-        if(value.contains("None")) return new ArrayList<>();
-        return List.of(value.split(";"));
+        if(value == null) return players;
+        if(value.contains("None")) return players;
+        players.addAll(Arrays.asList(value.split(";")));
+        return players;
     }
 
 
     public static boolean banPlayer(PSRegion region, String uuid){
         ProtectedRegion protectedRegion = region.getWGRegion();
-        String value = protectedRegion.getFlag(ProtectionStonesMenu.bannedPlayers);
-        if(value == null) value = "";
-        value = String.join(value, uuid+";");
+        List<String> bannedPlayers = getBannedPlayers(region);
         if(isBanned(region, uuid)) return false;
-        protectedRegion.setFlag(ProtectionStonesMenu.bannedPlayers, value);
+        bannedPlayers.add(uuid);
+        StringBuilder str = new StringBuilder();
+        for(String player : bannedPlayers){
+            str.append(player).append(";");
+        }
+        protectedRegion.setFlag(ProtectionStonesMenu.bannedPlayers, str.toString());
         region.removeOwner(UUID.fromString(uuid));
         region.removeMember(UUID.fromString(uuid));
         return true;
@@ -41,15 +47,19 @@ public class PSUtils {
 
     public static boolean unBanPlayer(PSRegion region, String UUID){
         ProtectedRegion protectedRegion = region.getWGRegion();
-        String value = protectedRegion.getFlag(ProtectionStonesMenu.bannedPlayers);
-        if(value == null) return false;
-        if(value.contains(UUID)){
-            value = value.replaceAll(UUID+";", "");
-            if(value.isEmpty()){
+        List<String> bannedPlayers = getBannedPlayers(region);
+        if(bannedPlayers.isEmpty()) return false;
+        if(bannedPlayers.contains(UUID)){
+            bannedPlayers.remove(UUID);
+            if(bannedPlayers.isEmpty()){
                 protectedRegion.setFlag(ProtectionStonesMenu.bannedPlayers, null);
                 return true;
             }
-            protectedRegion.setFlag(ProtectionStonesMenu.bannedPlayers, value);
+            StringBuilder str = new StringBuilder();
+            for(String player : bannedPlayers){
+                str.append(player).append(";");
+            }
+            protectedRegion.setFlag(ProtectionStonesMenu.bannedPlayers, str.toString());
             return true;
         }
         return false;

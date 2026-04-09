@@ -48,7 +48,8 @@ public class argBanListCommand implements PSCommandArg {
         Utils utils = plugin.getUtils();
         Player player = (Player) commandSender;
         if(args.length > 1){
-            utils.sendMessage(player, "&cUsage &n/ps banlist", true);
+            utils.sendMessage(player, plugin.getMessageConfig().getUsageMessage().replace("%command%", "ps")
+                    .replace("%arguments%", "banlist"), true);
             return true;
         }
         PSRegion region = PSRegion.fromLocation(player.getLocation());

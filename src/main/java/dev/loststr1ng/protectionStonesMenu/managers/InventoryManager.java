@@ -1,25 +1,19 @@
 package dev.loststr1ng.protectionStonesMenu.managers;
 
-import com.sk89q.worldguard.protection.flags.Flag;
-import dev.espi.protectionstones.PSPlayer;
 import dev.espi.protectionstones.PSRegion;
-import dev.espi.protectionstones.ProtectionStones;
 import dev.espi.protectionstones.utils.UUIDCache;
-import dev.espi.protectionstones.utils.WGUtils;
 import dev.loststr1ng.protectionStonesMenu.ProtectionStonesMenu;
 import dev.loststr1ng.protectionStonesMenu.config.MainConfig;
 import dev.loststr1ng.protectionStonesMenu.config.MessageConfig;
+import dev.loststr1ng.protectionStonesMenu.enums.PromptType;
 import dev.loststr1ng.protectionStonesMenu.listeners.PSItemClickEvent;
+import dev.loststr1ng.protectionStonesMenu.models.PromptModel;
 import dev.loststr1ng.protectionStonesMenu.utils.MessageUtils;
 import dev.loststr1ng.protectionStonesMenu.utils.PSUtils;
 import dev.loststr1ng.protectionStonesMenu.utils.Utils;
-import dev.triumphteam.gui.builder.item.ItemBuilder;
 import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -31,329 +25,335 @@ public class InventoryManager {
 
     protected final ProtectionStonesMenu plugin;
 
-    public InventoryManager(ProtectionStonesMenu plugin){
+    public InventoryManager(ProtectionStonesMenu plugin) {
         this.plugin = plugin;
     }
 
-    public void openGui(Player player, String gui, PSRegion region){
-        if(gui.equalsIgnoreCase("main")){
-            openPSMainMenu(player);
-            return;
-        }
-        if(gui.equalsIgnoreCase("homes")){
-            openPSHomeMenu(player);
-            return;
-        }
-        if(gui.equalsIgnoreCase("edit") && region != null){
-            openPSEditMenu(player, region);
-            return;
-        }
 
+    private boolean hasPermission(Player player, String permission) {
+        return !plugin.getMainConfig().isUsePermissions() || player.hasPermission(permission);
     }
 
-    public void openPSMainMenu(Player player){
+
+    private boolean checkCanEdit(Player player, PSRegion region) {
+        if (PSUtils.canEdit(region, player)) {
+            return true;
+        }
+        plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getNoPermissions(), true);
+        return false;
+    }
+
+    private Gui createAndOpenGui(Player player, String title, int rows) {
+
+        return Gui.gui()
+                .title(MessageUtils.getColoredMessage(title))
+                .rows(rows)
+                .create();
+    }
+
+    private void openGui(Gui gui, Player player) {
+        gui.open(player);
+        gui.setDefaultClickAction(event -> event.setCancelled(true));
+    }
+
+    /**
+     * Cycles to the next flag group in the rotation:
+     * all → owners → members → nonmembers → nonowners → all
+     */
+    private static String nextGroup(String current) {
+        return switch (current) {
+            case "all"        -> "owners";
+            case "owners"     -> "members";
+            case "members"    -> "nonmembers";
+            case "nonmembers" -> "nonowners";
+            default           -> "all";
+        };
+    }
+
+
+    public void openGui(Player player, String gui, PSRegion region) {
+        switch (gui.toLowerCase()) {
+            case "main"  -> openPSMainMenu(player);
+            case "homes" -> openPSHomeMenu(player);
+            case "edit"  -> { if (region != null) openPSEditMenu(player, region); }
+        }
+    }
+
+
+    public void openPSMainMenu(Player player) {
         Utils utils = plugin.getUtils();
         MainConfig mainConfig = plugin.getMainConfig();
         PSRegion region = PSRegion.fromLocation(player.getLocation());
-        Gui gui = Gui.gui()
-                .title(MessageUtils.getColoredMessage(mainConfig.getMainGuiTitle()))
-                .rows(mainConfig.getMainGuiSize())
-                .create();
-        for(Utils.InventoryItem inventoryItem: mainConfig.getMainGuiItems()){
-            if(inventoryItem.item.startsWith("custom:")){
+
+        Gui gui = createAndOpenGui(player, mainConfig.getMainGuiTitle(), mainConfig.getMainGuiSize());
+
+        for (Utils.InventoryItem inventoryItem : mainConfig.getMainGuiItems()) {
+            String type = inventoryItem.item;
+
+            if (type.startsWith("custom:")) {
+                addCustomItem(gui, inventoryItem, region, player);
+            } else if (type.equalsIgnoreCase("ps-homes")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem);
-                guiItem.setAction( inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    PSItemClickEvent event = new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction);
-                    Bukkit.getPluginManager().callEvent(event);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.equalsIgnoreCase("ps-homes")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
                     openPSHomeMenu(player);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(region != null && inventoryItem.item.equalsIgnoreCase("ps-info")){
+            } else if (region != null && type.equalsIgnoreCase("ps-info")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    // Open Edit Gui
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
                     openPSEditMenu(player, region);
-
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(region == null && inventoryItem.item.equalsIgnoreCase("ps-info2")){
+            } else if (region == null && type.equalsIgnoreCase("ps-info2")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                });
+                guiItem.setAction(e -> e.setCancelled(true));
                 gui.setItem(inventoryItem.slots, guiItem);
             }
-
         }
-        gui.open(player);
-        gui.setDefaultClickAction( event -> { event.setCancelled(true); });
 
+        openGui(gui, player);
     }
 
-    public void openPSHomeMenu(Player player){
+
+    public void openPSHomeMenu(Player player) {
         Utils utils = plugin.getUtils();
         MainConfig mainConfig = plugin.getMainConfig();
-        Gui gui = Gui.gui()
-                .title(MessageUtils.getColoredMessage(mainConfig.getHomesGuiTitle()))
-                .rows(mainConfig.getHomesGuiSize())
-                .create();
-        for(Utils.InventoryItem inventoryItem: mainConfig.getHomesGuiItems()){
-            if(inventoryItem.item.startsWith("custom:")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    PSItemClickEvent event = new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction);
-                    Bukkit.getPluginManager().callEvent(event);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.equalsIgnoreCase("ps-item")){
-                List<Integer> slots = new ArrayList<>(inventoryItem.slots);
-                for(PSRegion psRegion: utils.getRegions(player)){
+
+        Gui gui = createAndOpenGui(player, mainConfig.getHomesGuiTitle(), mainConfig.getHomesGuiSize());
+
+        for (Utils.InventoryItem inventoryItem : mainConfig.getHomesGuiItems()) {
+            String type = inventoryItem.item;
+
+            if (type.startsWith("custom:")) {
+                addCustomItem(gui, inventoryItem, null, player);
+            } else if (type.equalsIgnoreCase("ps-item")) {
+                Iterator<Integer> slotIterator = inventoryItem.slots.iterator();
+
+                for (PSRegion psRegion : utils.getRegions(player)) {
+                    if (!slotIterator.hasNext()) break;
+                    int slot = slotIterator.next();
+
                     GuiItem guiItem = utils.createItemBuilder(inventoryItem, psRegion);
-                    guiItem.setAction(inventoryClickEvent -> {
-                        inventoryClickEvent.setCancelled(true);
-
-                        // TP LOGIC
-                        if(inventoryClickEvent.isLeftClick()){
-                            utils.teleportPlayer(player, psRegion.getHome());
-                            gui.close(player);
-                            return;
-                        }
-                        // EDIT LOGIC
-                        if(inventoryClickEvent.isRightClick()){
+                    guiItem.setAction(e -> {
+                        e.setCancelled(true);
+                        if (e.isLeftClick()) {
+                            if (hasPermission(player, "protectionstones.home")) {
+                                utils.teleportPlayer(player, psRegion.getHome(), plugin.getMainConfig().getTeleportDelay());
+                                gui.close(player);
+                            } else {
+                                openPSEditMenu(player, psRegion);
+                            }
+                        } else if (e.isRightClick()) {
                             openPSEditMenu(player, psRegion);
-
                         }
                     });
-
-                    for(Integer slot: inventoryItem.slots){
-                        if(slots.contains(slot)){
-                            gui.setItem(slot, guiItem);
-                            slots.remove(slot);
-                            break;
-                        }
-                    }
+                    gui.setItem(slot, guiItem);
                 }
             }
         }
 
-        gui.open(player);
-        gui.setDefaultClickAction(inventoryClickEvent -> { inventoryClickEvent.setCancelled(true); });
+        openGui(gui, player);
     }
 
-    public void openPSEditMenu(Player player, PSRegion region){
+
+    public void openPSEditMenu(Player player, PSRegion region) {
+        if (!checkCanEdit(player, region)) return;
+
         Utils utils = plugin.getUtils();
         MainConfig mainConfig = plugin.getMainConfig();
-        if( !(PSUtils.canEdit(region, player)) ){
-            utils.sendMessage(player, plugin.getMessageConfig().getNoPermissions(), true);
-            return;
-        }
-        Gui gui = Gui.gui()
-                .title(MessageUtils.getColoredMessage(utils.parsePSVar(mainConfig.getEditGuiTitle(), region)))
-                .rows(mainConfig.getEditGuiSize())
-                .create();
-        for(Utils.InventoryItem inventoryItem: mainConfig.getEditGuiItems()){
-            if(inventoryItem.item.equalsIgnoreCase("ps-rename")){
+        MessageConfig messageConfig = plugin.getMessageConfig();
+
+        Gui gui = createAndOpenGui(player,
+                utils.parsePSVar(mainConfig.getEditGuiTitle(), region),
+                mainConfig.getEditGuiSize());
+
+        for (Utils.InventoryItem inventoryItem : mainConfig.getEditGuiItems()) {
+            if (!inventoryItem.isValid() || !inventoryItem.enabled) continue;
+
+            String type = inventoryItem.item;
+
+            if (type.startsWith("custom:")) {
+                addCustomItem(gui, inventoryItem, region, player);
+            } else if (type.equalsIgnoreCase("ps-rename")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    if(!region.isOwner(player.getUniqueId())){
-                        utils.sendMessage(player, plugin.getMessageConfig().getNoPermissions(), true);
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
+                    if (!region.isOwner(player.getUniqueId()) && !hasPermission(player, "protectionstones.name")) {
+                        utils.sendMessage(player, messageConfig.getNoPermissions(), true);
                         return;
                     }
-                    // set name logic
                     gui.close(player);
-                    plugin.renamePrompts.put(player.getUniqueId(), region);
-                    utils.sendMessage(player, plugin.getMessageConfig().getEditRename(), true);
+                    plugin.promptModelMap.put(player.getUniqueId(),
+                            new PromptModel(player, region, PromptType.RENAME));
+                    utils.sendMessage(player, messageConfig.getEditRename(), true);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.equalsIgnoreCase("ps-flags")){
+            } else if (type.equalsIgnoreCase("ps-flags")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    // set flags logic
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
                     openPSEditFlagsMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.equalsIgnoreCase("ps-owners")){
+            } else if (type.equalsIgnoreCase("ps-owners")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    // set owners logic
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
                     openPSOwnersMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.equalsIgnoreCase("ps-members")){
+            } else if (type.equalsIgnoreCase("ps-members")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    // set members logic
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
                     openPSMembersMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-
-            if(inventoryItem.item.equalsIgnoreCase("ps-hide-on") && !region.isHidden()){
+            } else if (type.equalsIgnoreCase("ps-hide-on") && !region.isHidden()) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    // Un hide protection block
-                    inventoryClickEvent.setCancelled(true);
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
+                    if (!hasPermission(player, "protectionstones.hide")) {
+                        utils.sendMessage(player, messageConfig.getNoPermissions(), true);
+                        return;
+                    }
                     region.hide();
-                    // refresh menu
                     openPSEditMenu(player, region);
-                    utils.sendMessage(player, plugin.getMessageConfig().getEditVisibilityOn(), true);
-
+                    utils.sendMessage(player, messageConfig.getEditVisibilityOff(), true);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.equalsIgnoreCase("ps-hide-off") && region.isHidden()){
+            } else if (type.equalsIgnoreCase("ps-hide-off") && region.isHidden()) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    // Hide protection block
-                    inventoryClickEvent.setCancelled(true);
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
+                    if (!hasPermission(player, "protectionstones.hide")) {
+                        utils.sendMessage(player, messageConfig.getNoPermissions(), true);
+                        return;
+                    }
                     region.unhide();
-                    // refresh menu
                     openPSEditMenu(player, region);
-                    utils.sendMessage(player, plugin.getMessageConfig().getEditVisibilityOff(), true);
+                    utils.sendMessage(player, messageConfig.getEditVisibilityOn(), true);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.equalsIgnoreCase("ps-ban")){
-                if(!mainConfig.isBanModuleEnabled()){
-                    continue;
-                }
+            } else if (type.equalsIgnoreCase("ps-ban") && mainConfig.isBanModuleEnabled()) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    // set ban logic
+                guiItem.setAction(e -> {
+                    e.setCancelled(true);
                     openPSBansMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             }
-            if(inventoryItem.item.startsWith("custom:")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    PSItemClickEvent event = new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction);
-                    Bukkit.getPluginManager().callEvent(event);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
-            }
         }
 
-        gui.open(player);
-        gui.setDefaultClickAction(inventoryClickEvent -> {
-            inventoryClickEvent.setCancelled(true);
-        });
+        openGui(gui, player);
     }
 
-    public void openPSEditFlagsMenu(Player player, PSRegion region){
+
+    public void openPSEditFlagsMenu(Player player, PSRegion region) {
+        if (!checkCanEdit(player, region)) return;
+
         Utils utils = plugin.getUtils();
         MainConfig mainConfig = plugin.getMainConfig();
         MessageConfig messageConfig = plugin.getMessageConfig();
-        if( !(PSUtils.canEdit(region, player)) ){
-            utils.sendMessage(player, messageConfig.getNoPermissions(), true);
-            return;
-        }
-        Gui gui = Gui.gui()
-                .title(MessageUtils.getColoredMessage(mainConfig.getEditFlagsGuiTitle()))
-                .rows(mainConfig.getEditFlagsGuiSize())
-                .create();
 
-        for(Utils.InventoryItem inventoryItem : mainConfig.getEditFlagsGuiItems()){
-            if(inventoryItem.item.startsWith("flags:")){
-                String flag = inventoryItem.item.replaceAll("flags:", "");
+        Gui gui = createAndOpenGui(player,
+                mainConfig.getEditFlagsGuiTitle(),
+                mainConfig.getEditFlagsGuiSize());
+
+        for (Utils.InventoryItem inventoryItem : mainConfig.getEditFlagsGuiItems()) {
+            String type = inventoryItem.item;
+
+            if (type.startsWith("flags:")) {
+                String flag = type.substring(6); // faster than replaceAll("flags:", "")
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, flag);
-                guiItem.setAction( event -> {
-                    event.setCancelled(true);
-                    Boolean value = utils.getFlagValue(region, flag);
-                    String group = utils.getFlagGroup(region, flag);
-                    if(event.isLeftClick()){
-                        // Alternate value Allow/Deny/None
-                        if(value == Boolean.TRUE){
-                            // set to deny
-                            utils.updateFlag(region, flag, false, group);
-                        } else if (value == Boolean.FALSE) {
-                            // set to none
-                            utils.updateFlag(region, flag, null, group);
 
-                        }else {
-                            // set to allow
-                            utils.updateFlag(region, flag, true, group);
+                if (utils.isStringFlag(flag)) {
+                    String flagString = utils.getStringFlag(region, flag);
+                    guiItem.setAction(event -> {
+                        event.setCancelled(true);
+                        if (!hasPermission(player, "protectionstones.flags.edit." + flag)) {
+                            utils.sendMessage(player, messageConfig.getNoPermissions(), true);
+                            return;
                         }
-                        String updated = utils.getFlag(messageConfig.getEditFlagUpdated(), region, flag);
-                        utils.sendMessage(player, MessageUtils.getLegacy(utils.parsePSVar(updated, region)), true);
-                        openPSEditFlagsMenu(player, region);
-                    }else
-                    if(event.isRightClick()){
-                        // Alternate Groups All/Owners/Members/NonOwners/NonMembers
-                        switch (group){
-                            case "all" -> utils.updateFlag(region, flag, value, "owners");
-                            case "owners" -> utils.updateFlag(region, flag, value, "members");
-                            case "members" -> utils.updateFlag(region, flag, value, "nonmembers");
-                            case "nonmembers" -> utils.updateFlag(region, flag, value, "nonowners");
-                            case "nonowners" -> utils.updateFlag(region, flag, value, "all");
+                        if (event.isLeftClick()) {
+                            gui.close(player);
+                            PromptModel promptModel = new PromptModel(player, region, PromptType.EDIT_FLAG);
+                            promptModel.setArgs(flag);
+                            plugin.promptModelMap.put(player.getUniqueId(), promptModel);
+                            utils.sendMessage(player, messageConfig.getValuePrompt()
+                                    .replace("%flag%", flag), true);
+                        } else if (event.isRightClick() && !inventoryItem.lock) {
+                            String group = utils.getFlagGroup(region, flag);
+                            utils.updateFlag(region, flag, flagString, nextGroup(group));
+                            sendFlagUpdatedMessage(utils, messageConfig, player, region, flag);
+                            openPSEditFlagsMenu(player, region);
                         }
-                        String updated = utils.getFlag(messageConfig.getEditFlagUpdated(), region, flag);
-                        utils.sendMessage(player, MessageUtils.getLegacy(utils.parsePSVar(updated, region)), true);
-                        openPSEditFlagsMenu(player, region);
-                    }
-                });
+                    });
+                } else {
+                    guiItem.setAction(event -> {
+                        event.setCancelled(true);
+                        if (!hasPermission(player, "protectionstones.flags.edit." + flag)) {
+                            utils.sendMessage(player, messageConfig.getNoPermissions(), true);
+                            return;
+                        }
+                        Boolean value = utils.getFlagValue(region, flag);
+                        String group = utils.getFlagGroup(region, flag);
+
+                        if (event.isLeftClick()) {
+                            // Cycle: true → false → null → true
+                            if (value == Boolean.TRUE) {
+                                utils.updateFlag(region, flag, false, group);
+                            } else if (value == Boolean.FALSE) {
+                                utils.updateFlag(region, flag, null, group);
+                            } else {
+                                utils.updateFlag(region, flag, true, group);
+                            }
+                            sendFlagUpdatedMessage(utils, messageConfig, player, region, flag);
+                            openPSEditFlagsMenu(player, region);
+                        } else if (event.isRightClick() && !inventoryItem.lock) {
+                            utils.updateFlag(region, flag, value, nextGroup(group));
+                            sendFlagUpdatedMessage(utils, messageConfig, player, region, flag);
+                            openPSEditFlagsMenu(player, region);
+                        }
+                    });
+                }
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.startsWith("custom:")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    PSItemClickEvent event = new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction, region);
-                    Bukkit.getPluginManager().callEvent(event);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
+            } else if (type.startsWith("custom:")) {
+                addCustomItem(gui, inventoryItem, region, player);
             }
         }
 
-        gui.open(player);
-        gui.setDefaultClickAction( inventoryClickEvent -> {
-            inventoryClickEvent.setCancelled(true);
-        });
+        openGui(gui, player);
     }
 
-    public void openPSOwnersMenu(Player player, PSRegion region){
+    private void sendFlagUpdatedMessage(Utils utils, MessageConfig messageConfig,
+                                        Player player, PSRegion region, String flag) {
+        String updated = utils.getFlag(messageConfig.getEditFlagUpdated(), region, flag);
+        utils.sendMessage(player, MessageUtils.getLegacy(utils.parsePSVar(updated, region)), true);
+    }
+
+
+    public void openPSOwnersMenu(Player player, PSRegion region) {
+        if (!checkCanEdit(player, region)) return;
+
         Utils utils = plugin.getUtils();
-        MessageConfig messageConfig = plugin.getMessageConfig();
         MainConfig mainConfig = plugin.getMainConfig();
-        if( !(PSUtils.canEdit(region, player)) ){
-            utils.sendMessage(player, messageConfig.getNoPermissions(), true);
-            return;
-        }
-        Gui gui = Gui.gui()
-                .title(MessageUtils.getColoredMessage(mainConfig.getEditOwnersTitle()))
-                .rows(mainConfig.getEditOwnersSize())
-                .create();
+        MessageConfig messageConfig = plugin.getMessageConfig();
 
-        for(Utils.InventoryItem inventoryItem: mainConfig.getEditOwnersGuiItems()){
-            if(inventoryItem.item.equalsIgnoreCase("owners")){
-                List<Integer> slots = new ArrayList<>(inventoryItem.slots);
-                Iterator<Integer> integerIterator = slots.iterator();
-                for(UUID ownerUUID: region.getOwners()){
-                    if(!integerIterator.hasNext()) break;
+        Gui gui = createAndOpenGui(player,
+                mainConfig.getEditOwnersTitle(),
+                mainConfig.getEditOwnersSize());
 
-                    int slot = integerIterator.next();
+        for (Utils.InventoryItem inventoryItem : mainConfig.getEditOwnersGuiItems()) {
+            String type = inventoryItem.item;
+
+            if (type.equalsIgnoreCase("owners")) {
+                Iterator<Integer> slotIterator = inventoryItem.slots.iterator();
+                for (UUID ownerUUID : region.getOwners()) {
+                    if (!slotIterator.hasNext()) break;
+                    int slot = slotIterator.next();
                     GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, ownerUUID);
                     guiItem.setAction(event -> {
                         event.setCancelled(true);
@@ -361,53 +361,48 @@ public class InventoryManager {
                     });
                     gui.setItem(slot, guiItem);
                 }
-            }
-            if(inventoryItem.item.equalsIgnoreCase("add-owner")){
+            } else if (type.equalsIgnoreCase("add-owner")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
-                    plugin.ownerPrompts.put(player.getUniqueId(), region);
+                    if (!hasPermission(player, "protectionstones.owners")) {
+                        utils.sendMessage(player, messageConfig.getNoPermissions(), true);
+                        return;
+                    }
+                    plugin.promptModelMap.put(player.getUniqueId(),
+                            new PromptModel(player, region, PromptType.ADD_OWNER));
                     gui.close(player);
                     utils.sendMessage(player, messageConfig.getEditOwnerPrompt(), true);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
+            } else if (type.startsWith("custom:")) {
+                addCustomItem(gui, inventoryItem, region, player);
             }
-            if(inventoryItem.item.startsWith("custom:")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    PSItemClickEvent event = new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction, region);
-                    Bukkit.getPluginManager().callEvent(event);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
-            }
-
         }
 
-        gui.open(player);
-        gui.setDefaultClickAction(inventoryClickEvent -> { inventoryClickEvent.setCancelled(true); });
+        openGui(gui, player);
     }
 
-    public void openPSMembersMenu(Player player, PSRegion region){
-        Utils utils = plugin.getUtils();
-        MessageConfig messageConfig = plugin.getMessageConfig();
-        MainConfig mainConfig = plugin.getMainConfig();
-        if( !(PSUtils.canEdit(region, player)) ){
-            utils.sendMessage(player, messageConfig.getNoPermissions(), true);
-            return;
-        }
-        Gui gui = Gui.gui()
-                .title(MessageUtils.getColoredMessage(mainConfig.getEditMembersTitle()))
-                .rows(mainConfig.getEditMembersSize())
-                .create();
 
-        for(Utils.InventoryItem inventoryItem: mainConfig.getEditMembersGuiItems()){
-            if(inventoryItem.item.equalsIgnoreCase("members")){
-                List<Integer> slots = new ArrayList<>(inventoryItem.slots);
-                Iterator<Integer> integerIterator = slots.iterator();
-                for(UUID memberUUID: region.getMembers()){
-                    if(!integerIterator.hasNext()) break;
-                    int slot = integerIterator.next();
+    public void openPSMembersMenu(Player player, PSRegion region) {
+        if (!checkCanEdit(player, region)) return;
+
+        Utils utils = plugin.getUtils();
+        MainConfig mainConfig = plugin.getMainConfig();
+        MessageConfig messageConfig = plugin.getMessageConfig();
+
+        Gui gui = createAndOpenGui(player,
+                mainConfig.getEditMembersTitle(),
+                mainConfig.getEditMembersSize());
+
+        for (Utils.InventoryItem inventoryItem : mainConfig.getEditMembersGuiItems()) {
+            String type = inventoryItem.item;
+
+            if (type.equalsIgnoreCase("members")) {
+                Iterator<Integer> slotIterator = inventoryItem.slots.iterator();
+                for (UUID memberUUID : region.getMembers()) {
+                    if (!slotIterator.hasNext()) break;
+                    int slot = slotIterator.next();
                     GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, memberUUID);
                     guiItem.setAction(event -> {
                         event.setCancelled(true);
@@ -415,216 +410,209 @@ public class InventoryManager {
                     });
                     gui.setItem(slot, guiItem);
                 }
-            }
-            if(inventoryItem.item.equalsIgnoreCase("add-member")){
+            } else if (type.equalsIgnoreCase("add-member")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
-                    plugin.memberPrompts.put(player.getUniqueId(), region);
+                    if (!hasPermission(player, "protectionstones.members")) {
+                        utils.sendMessage(player, messageConfig.getNoPermissions(), true);
+                        return;
+                    }
+                    plugin.promptModelMap.put(player.getUniqueId(),
+                            new PromptModel(player, region, PromptType.ADD_MEMBER));
                     gui.close(player);
                     utils.sendMessage(player, messageConfig.getEditMemberPrompt(), true);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.startsWith("custom:")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    PSItemClickEvent event = new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction, region);
-                    Bukkit.getPluginManager().callEvent(event);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
+            } else if (type.startsWith("custom:")) {
+                addCustomItem(gui, inventoryItem, region, player);
             }
         }
-        gui.open(player);
-        gui.setDefaultClickAction(inventoryClickEvent -> { inventoryClickEvent.setCancelled(true); });
+
+        openGui(gui, player);
     }
 
-    public void openPSBansMenu(Player player, PSRegion region){
+
+    public void openPSBansMenu(Player player, PSRegion region) {
+        if (!checkCanEdit(player, region)) return;
+
         Utils utils = plugin.getUtils();
         MainConfig mainConfig = plugin.getMainConfig();
         MessageConfig messageConfig = plugin.getMessageConfig();
-        if( !(PSUtils.canEdit(region, player)) ){
-            utils.sendMessage(player, messageConfig.getNoPermissions(), true);
-            return;
-        }
-        if(!mainConfig.isBanModuleEnabled()){
-            utils.sendMessage(player, messageConfig.getBanDisabled(), true);
-        }
-        Gui gui = Gui.gui()
-                .title(MessageUtils.getColoredMessage(utils.parsePSVar(mainConfig.getEditBansTitle(), region)))
-                .rows(mainConfig.getEditBansSize())
-                .create();
 
-        for(Utils.InventoryItem inventoryItem: mainConfig.getEditBansGuiItems()){
-            if(inventoryItem.item.equalsIgnoreCase("banned-players")){
-                List<Integer> slots = new ArrayList<>(inventoryItem.slots);
-                Iterator<Integer> integerIterator = slots.iterator();
-                for(String bannedUUID: PSUtils.getBannedPlayers(region)){
-                    if(!integerIterator.hasNext()) break;
-                    int slot = integerIterator.next();
+        if (!mainConfig.isBanModuleEnabled()) {
+            utils.sendMessage(player, messageConfig.getBanDisabled(), true);
+            return; // original code was missing this return
+        }
+
+        Gui gui = createAndOpenGui(player,
+                utils.parsePSVar(mainConfig.getEditBansTitle(), region),
+                mainConfig.getEditBansSize());
+
+        for (Utils.InventoryItem inventoryItem : mainConfig.getEditBansGuiItems()) {
+            String type = inventoryItem.item;
+
+            if (type.equalsIgnoreCase("banned-players")) {
+                Iterator<Integer> slotIterator = inventoryItem.slots.iterator();
+                for (String bannedUUID : PSUtils.getBannedPlayers(region)) {
+                    if (!slotIterator.hasNext()) break;
+                    int slot = slotIterator.next();
                     UUID uuid = UUID.fromString(bannedUUID);
                     String name = UUIDCache.getNameFromUUID(uuid);
                     GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, uuid);
                     guiItem.setAction(event -> {
                         event.setCancelled(true);
-                        // Unban Player
-                        if(event.isLeftClick()){
-                            if(PSUtils.unBanPlayer(region, bannedUUID)){
+                        if (event.isLeftClick()) {
+                            if (PSUtils.unBanPlayer(region, bannedUUID)) {
                                 utils.sendMessage(player, messageConfig.getBanRemoveSuccess()
-                                        .replaceAll("%player%", name), true);
+                                        .replace("%player%", name), true);
                                 openPSBansMenu(player, region);
-                            }else {
+                            } else {
                                 utils.sendMessage(player, messageConfig.getBanNot(), true);
                             }
                         }
                     });
                     gui.setItem(slot, guiItem);
                 }
-            }
-            if(inventoryItem.item.equalsIgnoreCase("add-ban")){
+            } else if (type.equalsIgnoreCase("add-ban")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
-                    plugin.banPrompts.put(player.getUniqueId(), region);
+                    plugin.promptModelMap.put(player.getUniqueId(),
+                            new PromptModel(player, region, PromptType.BAN));
                     gui.close(player);
                     utils.sendMessage(player, messageConfig.getBanPrompt(), true);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            if(inventoryItem.item.startsWith("custom:")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    PSItemClickEvent event = new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction, region);
-                    Bukkit.getPluginManager().callEvent(event);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
+            } else if (type.startsWith("custom:")) {
+                addCustomItem(gui, inventoryItem, region, player);
             }
         }
 
-        gui.open(player);
-        gui.setDefaultClickAction(inventoryClickEvent -> { inventoryClickEvent.setCancelled(true);});
+        openGui(gui, player);
     }
 
-    public void openPSPlayerMenu(Player player, PSRegion region, UUID target){
+
+    public void openPSPlayerMenu(Player player, PSRegion region, UUID target) {
+        if (!checkCanEdit(player, region)) return;
+
         Utils utils = plugin.getUtils();
         MainConfig mainConfig = plugin.getMainConfig();
         MessageConfig messageConfig = plugin.getMessageConfig();
         String name = UUIDCache.getNameFromUUID(target);
-        if( !(PSUtils.canEdit(region, player)) ){
-            utils.sendMessage(player, messageConfig.getNoPermissions(), true);
-            return;
-        }
 
-        if(player.getUniqueId().equals(target)){
+        if (player.getUniqueId().equals(target)) {
             utils.sendMessage(player, messageConfig.getEditPlayerSelf(), true);
             return;
         }
 
-        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(target);
+        Gui gui = createAndOpenGui(player,
+                utils.parsePSVar(mainConfig.getEditPlayerTitle().replace("%player%", name), region),
+                mainConfig.getEditPlayerSize());
 
-        Gui gui = Gui.gui()
-                .title(MessageUtils.getColoredMessage(utils.parsePSVar(mainConfig.getEditPlayerTitle().replaceAll("%player%", offlinePlayer.getName()), region)))
-                .rows(mainConfig.getEditPlayerSize())
-                .create();
+        for (Utils.InventoryItem inventoryItem : mainConfig.getEditPlayerGuiItems()) {
+            String type = inventoryItem.item;
 
-        for(Utils.InventoryItem inventoryItem: mainConfig.getEditPlayerGuiItems()){
-            // Ban Item
-            if(inventoryItem.item.equalsIgnoreCase("ban")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
-                guiItem.setAction( event ->{
-                    event.setCancelled(true);
-                    if(!mainConfig.isBanModuleEnabled()){
-                        utils.sendMessage(player, messageConfig.getBanDisabled(), true);
-                    }
-                    if(player.getUniqueId().equals(target)){
-                        utils.sendMessage(player, messageConfig.getBanSelf(), true);
-                    }
-                    if(PSUtils.banPlayer(region, target.toString())){
-                        utils.sendMessage(player, messageConfig.getBanAddSuccess().replaceAll("%player%", name), true);
-                    }else {
-                        utils.sendMessage(player, messageConfig.getBanAlready().replaceAll("%player%", name), true);
-                        return;
-                    }
-                    openPSEditMenu(player, region);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
-            }
-            // Kick Item
-            if(inventoryItem.item.equalsIgnoreCase("kick")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
-                guiItem.setAction( event -> {
-                    event.setCancelled(true);
-                    Player targetPlayer = Bukkit.getPlayer(target);
-                    if(targetPlayer == null){
-                        utils.sendMessage(player, messageConfig.getPlayerNotFound()
-                                .replaceAll("%player%", name), true);
-                        return;
-                    }
-                    if(region.isOwner(player.getUniqueId())){
-                        PSUtils.kickPlayer(region, targetPlayer);
-                        utils.sendMessage(player, plugin.getMessageConfig().getKickSuccess()
-                                .replaceAll("%player%", name), true);
-                        utils.sendMessage(targetPlayer, plugin.getMessageConfig().getKickMessage()
-                                .replaceAll("%player%", player.getName()), true);
-
-                    }else {
-                        utils.sendMessage(player, plugin.getMessageConfig().getNoPermissions(), true);
-                    }
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
-            }
-            // Remove Item
-            if(inventoryItem.item.equalsIgnoreCase("remove")){
+            if (type.equalsIgnoreCase("ban")) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
-                    utils.sendMessage(player, messageConfig.getEditMemberRemoveSuccess().replaceAll("%player%", name), true);
+                    if (!mainConfig.isBanModuleEnabled()) {
+                        utils.sendMessage(player, messageConfig.getBanDisabled(), true);
+                        return; // FIX: was missing return
+                    }
+                    if (player.getUniqueId().equals(target)) {
+                        utils.sendMessage(player, messageConfig.getBanSelf(), true);
+                        return; // FIX: was missing return
+                    }
+                    if (PSUtils.banPlayer(region, target.toString())) {
+                        utils.sendMessage(player, messageConfig.getBanAddSuccess()
+                                .replace("%player%", name), true);
+                        openPSEditMenu(player, region);
+                    } else {
+                        utils.sendMessage(player, messageConfig.getBanAlready()
+                                .replace("%player%", name), true);
+                    }
+                });
+                gui.setItem(inventoryItem.slots, guiItem);
+            } else if (type.equalsIgnoreCase("kick")) {
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
+                guiItem.setAction(event -> {
+                    event.setCancelled(true);
+                    Player targetPlayer = Bukkit.getPlayer(target);
+                    if (targetPlayer == null) {
+                        utils.sendMessage(player, messageConfig.getPlayerNotFound()
+                                .replace("%player%", name), true);
+                        return;
+                    }
+                    if (region.isOwner(player.getUniqueId())) {
+                        PSUtils.kickPlayer(region, targetPlayer);
+                        utils.sendMessage(player, messageConfig.getKickSuccess()
+                                .replace("%player%", name), true);
+                        utils.sendMessage(targetPlayer, messageConfig.getKickMessage()
+                                .replace("%player%", player.getName()), true);
+                    } else {
+                        utils.sendMessage(player, messageConfig.getNoPermissions(), true);
+                    }
+                });
+                gui.setItem(inventoryItem.slots, guiItem);
+            } else if (type.equalsIgnoreCase("remove")) {
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
+                guiItem.setAction(event -> {
+                    event.setCancelled(true);
+                    utils.sendMessage(player, messageConfig.getEditMemberRemoveSuccess()
+                            .replace("%player%", name), true);
                     region.removeMember(target);
                     region.removeOwner(target);
                     openPSEditMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            // Promote Item
-            if(inventoryItem.item.equalsIgnoreCase("owner") && !region.isOwner(target)){
+            } else if (type.equalsIgnoreCase("owner") && !region.isOwner(target)) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
-                guiItem.setAction( event -> {
+                guiItem.setAction(event -> {
                     event.setCancelled(true);
-                    utils.sendMessage(player, messageConfig.getEditPlayerPromote().replaceAll("%player%", name), true);
+                    utils.sendMessage(player, messageConfig.getEditPlayerPromote()
+                            .replace("%player%", name), true);
                     region.removeMember(target);
                     region.addOwner(target);
                     openPSEditMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            // Demote Item
-            if(inventoryItem.item.equalsIgnoreCase("member") && region.isOwner(target)){
+            } else if (type.equalsIgnoreCase("member") && region.isOwner(target)) {
                 GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
-                guiItem.setAction( event -> {
+                guiItem.setAction(event -> {
                     event.setCancelled(true);
-                    utils.sendMessage(player, messageConfig.getEditPlayerDemote().replaceAll("%player%", name), true);
+                    utils.sendMessage(player, messageConfig.getEditPlayerDemote()
+                            .replace("%player%", name), true);
                     region.removeOwner(target);
                     region.addMember(target);
                     openPSEditMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
-            }
-            // Custom item
-            if(inventoryItem.item.startsWith("custom:")){
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
-                guiItem.setAction(inventoryClickEvent -> {
-                    inventoryClickEvent.setCancelled(true);
-                    PSItemClickEvent event = new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction, region);
-                    Bukkit.getPluginManager().callEvent(event);
-                });
-                gui.setItem(inventoryItem.slots, guiItem);
+            } else if (type.startsWith("custom:")) {
+                addCustomItem(gui, inventoryItem, region, player);
             }
         }
 
-        gui.open(player);
-        gui.setDefaultClickAction( inventoryClickEvent -> { inventoryClickEvent.setCancelled(true);});
+        openGui(gui, player);
     }
 
+
+    private void addCustomItem(Gui gui, Utils.InventoryItem inventoryItem, PSRegion region, Player player) {
+        GuiItem guiItem = plugin.getUtils().createItemBuilder(inventoryItem, region);
+        guiItem.setAction(event -> {
+            event.setCancelled(true);
+            boolean allowed = !plugin.getMainConfig().isUsePermissions()
+                    || inventoryItem.permission == null
+                    || player.hasPermission(inventoryItem.permission);
+
+            if (allowed) {
+                Bukkit.getPluginManager().callEvent(
+                        new PSItemClickEvent(player, gui, inventoryItem.action, inventoryItem.argAction, region));
+            } else {
+                plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getNoPermissions(), true);
+            }
+        });
+        gui.setItem(inventoryItem.slots, guiItem);
+    }
 }

@@ -19,6 +19,8 @@ public class MainConfig {
     private boolean kickModuleEnabled;
     private boolean openPSCommands;
     private boolean openOnClickBlock;
+    private boolean usePermissions;
+    private int teleportDelay;
 
     // comand
     private String CommandName;
@@ -81,6 +83,8 @@ public class MainConfig {
         this.kickModuleEnabled = configuration.getBoolean("config.kickModule");
         this.openPSCommands = configuration.getBoolean("config.openPSCommands");
         this.openOnClickBlock = configuration.getBoolean("config.openOnClickBlock");
+        this.usePermissions = configuration.getBoolean("config.usePermissions");
+        this.teleportDelay = configuration.getInt("config.teleportDelay", 0);
         // command config
         this.CommandName = configuration.getString("command.name", "psmenu");
         this.CommandDescription = configuration.getString("command.description", "Main plugin command");
@@ -430,5 +434,17 @@ public class MainConfig {
 
     public List<String> getCommandAliases() {
         return CommandAliases;
+    }
+
+    public ConfigModel getConfiguration(){
+        return configModel;
+    }
+
+    public boolean isUsePermissions() {
+        return usePermissions;
+    }
+
+    public int getTeleportDelay() {
+        return teleportDelay;
     }
 }

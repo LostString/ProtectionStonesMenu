@@ -5,24 +5,27 @@ import com.sk89q.worldguard.protection.flags.*;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import dev.espi.protectionstones.PSPlayer;
 import dev.espi.protectionstones.PSRegion;
+import dev.espi.protectionstones.utils.UUIDCache;
 import dev.loststr1ng.protectionStonesMenu.ProtectionStonesMenu;
 import dev.loststr1ng.protectionStonesMenu.config.MessageConfig;
 import dev.triumphteam.gui.builder.item.ItemBuilder;
 import dev.triumphteam.gui.builder.item.SkullBuilder;
-import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
-import net.kyori.adventure.text.Component;
 import org.bukkit.*;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
+import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Utils {
 
@@ -41,36 +44,40 @@ public class Utils {
         public String name;
         public List<String> lore;
         public List<Integer> slots;
+        public String permission;
         public String action;
         public String argAction;
         public boolean enabled = true;
+        public boolean lock = false;
 
         public InventoryItem(FileConfiguration configuration, String path, String displayName){
             ConfigurationSection configurationSection = configuration.getConfigurationSection(path);
             this.item = displayName;
             if(configurationSection != null){
-                this.id = configurationSection.getString("id");
+                this.id = configurationSection.getString("id", "STONE");
                 this.urlSkull = configurationSection.getString("url");
                 this.enabled = configurationSection.getBoolean("enabled");
-                this.name = configurationSection.getString("name");
+                this.lock = configurationSection.getBoolean("lock");
+                this.name = configurationSection.getString("name", "Default name");
+                this.permission = configurationSection.getString("permission");
                 this.lore = configurationSection.getStringList("lore");
-                if(configurationSection.getStringList("slots").isEmpty()){
-                    this.slots = List.of(configurationSection.getInt("slot"));
-                }else {
-                    this.slots = parseSlotsRange(configurationSection.getStringList("slots"));
-                }
+                List<String> slotList = configurationSection.getStringList("slots");
+                this.slots = slotList.isEmpty()
+                        ? List.of(configurationSection.getInt("slot", 1))
+                        : parseSlotsRange(slotList);
                 this.action = configurationSection.getString("action");
                 if(action == null) return;
-                switch (action){
-                    case "OPEN_MENU" -> this.argAction = configurationSection.getString("menu");
-                    case "COMMAND", "PLAYER_COMMAND" -> this.argAction = configuration.getString("command");
-                    default -> this.argAction = "";
-                }
-
+                this.argAction = switch (action) {
+                    case "OPEN_MENU" -> configurationSection.getString("menu", "main");
+                    case "COMMAND", "PLAYER_COMMAND" -> configurationSection.getString("command", "say error");
+                    default -> "";
+                };
             }
         }
 
-
+        public boolean isValid(){
+            return id != null && name != null && !slots.isEmpty();
+        }
 
     }
 
@@ -87,8 +94,9 @@ public class Utils {
         return regions;
     }
 
+
     public List<String> parsePSVar(List<String> s, PSRegion region){
-        List<String> parsed = new ArrayList<>();
+        List<String> parsed = new ArrayList<>(s.size());
         for(String line: s){
             parsed.add(parsePSVar(line, region));
         }
@@ -96,48 +104,42 @@ public class Utils {
     }
 
     public String parsePSVar(String s, PSRegion region){
-        Location location = region.getHome().getBlock().getLocation();
-        String name = region.getName() != null ? region.getName() : region.getId();
-        String parsed = s.replaceAll("%x%", String.valueOf(location.getBlockX()))
-                .replaceAll("%y%", String.valueOf(location.getBlockY()))
-                .replaceAll("%z%", String.valueOf(location.getBlockZ()))
-                .replaceAll("%name%", name)
-                .replaceAll("%world%", region.getWorld().getName());
-        StringBuilder members = new StringBuilder();
-        for(UUID uuid: region.getMembers()){
-            OfflinePlayer member = Bukkit.getOfflinePlayer(uuid);
-            if(region.getMembers().indexOf(uuid) == (region.getMembers().size() - 1) ){
-                members.append(member.getName());
-            }else {
-                members.append(" ").append(member.getName()).append(",");
-            }
+        String parsed = getLocationParsed(s, region);
+
+        parsed = parsed.replace("%members%", joinNames(region.getMembers()));
+        parsed = parsed.replace("%owners%", joinNames(region.getOwners()));
+
+        
+        List<String> bannedUUIDs = PSUtils.getBannedPlayers(region);
+        StringJoiner bannedJoiner = new StringJoiner(", ");
+        for (String uuid : bannedUUIDs) {
+            bannedJoiner.add(UUIDCache.getNameFromUUID(UUID.fromString(uuid)));
         }
-        parsed = parsed.replaceAll("%members%", members.toString());
-        StringBuilder owners = new StringBuilder();
-        for(UUID uuid: region.getOwners()){
-            OfflinePlayer member = Bukkit.getOfflinePlayer(uuid);
-            if(region.getMembers().indexOf(uuid) == (region.getMembers().size() - 1) ){
-                owners.append(member.getName());
-            }else {
-                owners.append(" ").append(member.getName()).append(",");
-            }
-        }
-        parsed = parsed.replaceAll("%owners%", owners.toString());
-        StringBuilder banned = new StringBuilder();
-        for(String uuid: PSUtils.getBannedPlayers(region)){
-            UUID bannedUUID = UUID.fromString(uuid);
-            OfflinePlayer bannedPlayer = Bukkit.getOfflinePlayer(bannedUUID);
-            if(PSUtils.getBannedPlayers(region).indexOf(uuid) == (PSUtils.getBannedPlayers(region).size() - 1) ){
-                banned.append(bannedPlayer.getName());
-            }else {
-                banned.append(" ").append(bannedPlayer.getName()).append(",");
-            }
-        }
-        parsed = parsed.replaceAll("%banned%", banned.toString());
+        parsed = parsed.replace("%banned%", bannedJoiner.toString());
         return parsed;
     }
 
+    private static @NotNull String getLocationParsed(String s, PSRegion region) {
+        Location location = region.getHome().getBlock().getLocation();
+        String name = region.getName() != null ? region.getName() : region.getId();
 
+        // Use replace() instead of replaceAll() — these are literal strings, not regex patterns
+        return s.replace("%x%", String.valueOf(location.getBlockX()))
+                .replace("%y%", String.valueOf(location.getBlockY()))
+                .replace("%z%", String.valueOf(location.getBlockZ()))
+                .replace("%name%", name)
+                .replace("%world%", region.getWorld().getName());
+    }
+
+
+    private String joinNames(List<UUID> uuids) {
+        StringJoiner joiner = new StringJoiner(", ");
+        for (UUID uuid : uuids) {
+            joiner.add(UUIDCache.getNameFromUUID(uuid));
+        }
+        return joiner.toString();
+    }
+    
 
     public List<Integer> parseSlotsRange(List<String> ranges){
         List<Integer> slots = new ArrayList<>();
@@ -147,233 +149,222 @@ public class Utils {
                 try {
                     int start = Integer.parseInt(range[0]);
                     int end = Integer.parseInt(range[1]);
-
                     for (int i = start; i <= end; i++) {
                         slots.add(i);
                     }
-                } catch (NumberFormatException e) {
-                    // MessageUtils.sendMessage(plugin.getConsole(), "<dark_red>Error: the config of slots '" + slotConfig + "' is invalid.");
+                } catch (NumberFormatException ignored) {
+                    
                 }
             } else {
-                slots.add(Integer.parseInt(slotConfig));
-                // MessageUtils.sendMessage(plugin.getConsole(),"<dark_red>Error: <red>the format range of slots '" + slotConfig + "' is invalid.");
+                try {
+                    slots.add(Integer.parseInt(slotConfig));
+                } catch (NumberFormatException ignored) {
+                    
+                }
             }
         }
         return slots;
     }
 
-    @SuppressWarnings("deprecation")
+
     public GuiItem createItemBuilder(InventoryItem inventoryItem){
-        GuiItem guiItem;
-        Material material = Material.getMaterial(inventoryItem.id);
-        if(material == null) material = Material.BARRIER;
-        if(material.name().equalsIgnoreCase("PLAYER_HEAD")){
-            guiItem = ItemBuilder.skull()
-                    .setName(MessageUtils.getLegacy(inventoryItem.name))
-                    .setLore(MessageUtils.getColoredList(inventoryItem.lore))
-                    .texture(inventoryItem.urlSkull)
-                    .asGuiItem();
-        }else {
-            guiItem = ItemBuilder.from(material)
-                    .setName(MessageUtils.getLegacy(inventoryItem.name))
-                    .setLore(MessageUtils.getColoredList(inventoryItem.lore))
-                    .asGuiItem();
-        }
-        return guiItem;
+        return buildGuiItem(inventoryItem, inventoryItem.name, inventoryItem.lore,
+                resolveMaterial(inventoryItem, null), null, false);
     }
 
-    @SuppressWarnings("deprecation")
     public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion){
-        GuiItem guiItem;
-        Material material = Material.getMaterial(inventoryItem.id);
-        if(material == null) material = Material.BARRIER;
-        if(material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null){
-            guiItem = ItemBuilder.skull()
-                    .setName(MessageUtils.getLegacy(parsePSVar(inventoryItem.name, psRegion)))
-                    .setLore(MessageUtils.getColoredList(parsePSVar(inventoryItem.lore, psRegion)))
-                    .texture(inventoryItem.urlSkull)
-                    .asGuiItem();
-        }else {
-            guiItem = ItemBuilder.from(material)
-                    .setName(MessageUtils.getLegacy(parsePSVar(inventoryItem.name, psRegion)))
-                    .setLore(MessageUtils.getColoredList(parsePSVar(inventoryItem.lore, psRegion)))
-                    .asGuiItem();
-        }
-        return guiItem;
-    }
-
-    @SuppressWarnings("deprecation")
-    public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, UUID player){
-
-        GuiItem guiItem;
-        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player);
-        String playerName = offlinePlayer.getName();
-        String name = parsePSVar(inventoryItem.name, psRegion).replaceAll("%player%", String.valueOf(playerName));
-        List<String> lore = parsePSVar(inventoryItem.lore, psRegion);
-        List<String> newLore = new ArrayList<>();
-        lore.forEach( line -> {
-            newLore.add(line.replaceAll("%player%", String.valueOf(playerName)));
-        });
-        Material material = Material.getMaterial(inventoryItem.id);
-        if(material == null) material = Material.BARRIER;
-        if(material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null){
-            if(inventoryItem.urlSkull.equalsIgnoreCase("player")){
-                guiItem = ItemBuilder.skull()
-                        .setName(MessageUtils.getLegacy(name))
-                        .setLore(MessageUtils.getColoredList(newLore))
-                        .owner(offlinePlayer)
-                        .flags(ItemFlag.values())
-                        .asGuiItem();
-            }else {
-                guiItem = ItemBuilder.skull()
-                        .setName(MessageUtils.getLegacy(name))
-                        .setLore(MessageUtils.getColoredList(newLore))
-                        .texture(inventoryItem.urlSkull)
-                        .flags(ItemFlag.values())
-                        .asGuiItem();
-            }
-        }else {
-            guiItem = ItemBuilder.from(material)
-                    .setName(MessageUtils.getLegacy(name))
-                    .setLore(MessageUtils.getColoredList(newLore))
-                    .flags(ItemFlag.values())
-                    .asGuiItem();
-        }
-        return guiItem;
-    }
-
-    @SuppressWarnings("deprecation")
-    public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, String flag){
-
-        GuiItem guiItem;
+        if(psRegion == null) return createItemBuilder(inventoryItem);
         String name = parsePSVar(inventoryItem.name, psRegion);
         List<String> lore = parsePSVar(inventoryItem.lore, psRegion);
-        List<String> newLore = new ArrayList<>();
-        lore.forEach( line -> {
-            newLore.add(getFlag(line, psRegion, flag));
-        });
-        Material material = Material.getMaterial(inventoryItem.id);
-        if(material == null) material = Material.BARRIER;
-        if(material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null){
-            guiItem = ItemBuilder.skull()
-                    .setName(MessageUtils.getLegacy(getFlag(name, psRegion, flag)))
-                    .setLore(MessageUtils.getColoredList(newLore))
-                    .texture(inventoryItem.urlSkull)
-                    .flags(ItemFlag.values())
-                    .asGuiItem();
-        }else {
-            guiItem = ItemBuilder.from(material)
-                    .setName(MessageUtils.getLegacy(getFlag(name, psRegion, flag)))
-                    .setLore(MessageUtils.getColoredList(newLore))
-                    .flags(ItemFlag.values())
-                    .asGuiItem();
+        return buildGuiItem(inventoryItem, name, lore,
+                resolveMaterial(inventoryItem, psRegion), null, false);
+    }
+
+    public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, UUID player){
+
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player);
+        String playerName = String.valueOf(offlinePlayer.getName());
+        String name = parsePSVar(inventoryItem.name, psRegion).replace("%player%", playerName);
+        List<String> lore = new ArrayList<>();
+        for (String line : parsePSVar(inventoryItem.lore, psRegion)) {
+            lore.add(line.replace("%player%", playerName));
         }
-        return guiItem;
+        return buildGuiItem(inventoryItem, name, lore,
+                resolveMaterial(inventoryItem, psRegion), offlinePlayer, true);
+    }
+
+    public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, String flag){
+        String name = getFlag(parsePSVar(inventoryItem.name, psRegion), psRegion, flag);
+        List<String> lore = new ArrayList<>();
+        for (String line : parsePSVar(inventoryItem.lore, psRegion)) {
+            lore.add(getFlag(line, psRegion, flag));
+        }
+        return buildGuiItem(inventoryItem, name, lore,
+                resolveMaterial(inventoryItem, psRegion), null, true);
+    }
+
+
+    private Material resolveMaterial(InventoryItem inventoryItem, @Nullable PSRegion psRegion) {
+        if (psRegion != null && inventoryItem.id != null && inventoryItem.id.equalsIgnoreCase("PS_BLOCK")) {
+            return psRegion.getProtectBlock().getType();
+        }
+        if(inventoryItem.id == null){
+            return Material.BARRIER;
+        }
+        Material material = Material.getMaterial(inventoryItem.id);
+        return material != null ? material : Material.BARRIER;
+    }
+
+    /**
+     * item builder
+     *
+     * @param inventoryItem  the item config
+     * @param name           already-parsed display name
+     * @param lore           already-parsed lore lines
+     * @param material       resolved material
+     * @param skullOwner     if non-null and urlSkull == "player", sets the skull owner
+     * @param addItemFlags   whether to add ItemFlag.values()
+     */
+    @SuppressWarnings("deprecation")
+    private GuiItem buildGuiItem(InventoryItem inventoryItem, String name, List<String> lore,
+                                 Material material, @Nullable OfflinePlayer skullOwner, boolean addItemFlags) {
+        if (material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null) {
+            SkullBuilder builder = ItemBuilder.skull()
+                    .setName(MessageUtils.getLegacy(name))
+                    .setLore(MessageUtils.getColoredList(lore));
+
+            if (skullOwner != null && inventoryItem.urlSkull.equalsIgnoreCase("player")) {
+                builder.owner(skullOwner);
+            } else {
+                builder.texture(inventoryItem.urlSkull);
+            }
+
+            if (addItemFlags) builder.flags(ItemFlag.values());
+            return builder.asGuiItem();
+        }
+
+        var builder = ItemBuilder.from(material)
+                .setName(MessageUtils.getLegacy(name))
+                .setLore(MessageUtils.getColoredList(lore));
+
+        if (addItemFlags) builder.flags(ItemFlag.values());
+        return builder.asGuiItem();
+    }
+
+
+    private Flag<?> lookupFlag(String flagName) {
+        return Flags.fuzzyMatchFlag(WorldGuard.getInstance().getFlagRegistry(), flagName);
     }
 
     public String getFlag(String s, PSRegion region, String flagName){
         MessageConfig messages = plugin.getMessageConfig();
-        ProtectedRegion protectedRegion = region.getWGRegion();
-        Flag<?> flag = Flags.fuzzyMatchFlag(WorldGuard.getInstance().getFlagRegistry(), flagName);
-        if( flag == null) return s;
-        Boolean value = getFlagValue(region, flagName);
+        Flag<?> flag = lookupFlag(flagName);
+        if (flag == null) return s;
+
         String group = getFlagGroup(region, flagName);
-        if(value == Boolean.TRUE){
-            s = s.replaceAll("%value%", messages.getEditFlagAllow());
-        }else if(value == Boolean.FALSE){
-            s = s.replaceAll("%value%", messages.getEditFlagDeny());
-        }else {
-            s = s.replaceAll("%value%", messages.getEditFlagNone());
+
+        if (flag instanceof BooleanFlag || flag instanceof StateFlag) {
+            Boolean value = getFlagValue(region, flagName);
+            if (value == Boolean.TRUE) {
+                s = s.replace("%value%", messages.getEditFlagAllow());
+            } else if (value == Boolean.FALSE) {
+                s = s.replace("%value%", messages.getEditFlagDeny());
+            } else {
+                s = s.replace("%value%", messages.getEditFlagNone());
+            }
+        } else if (flag instanceof StringFlag) {
+            String stringFlag = getStringFlag(region, flagName);
+            s = s.replace("%value%", stringFlag != null ? stringFlag : messages.getEditFlagNone());
         }
-        switch (group) {
-            case "owners" -> s = s.replaceAll("%group%", messages.getEditFlagGroupOwners());
-            case "members" -> s = s.replaceAll("%group%", messages.getEditFlagGroupMembers());
-            case "nonmembers" -> s = s.replaceAll("%group%", messages.getEditFlagGroupNonMembers());
-            case "nonowners" -> s = s.replaceAll("%group%", messages.getEditFlagGroupNonOwners());
-            case "all" -> s = s.replaceAll("%group%", messages.getEditFlagGroupAll());
-            default -> s = s.replaceAll("%group%", "Null");
-        }
-        s = s.replaceAll("%flag%", flagName);
+
+        s = s.replace("%group%", switch (group) {
+            case "owners"     -> messages.getEditFlagGroupOwners();
+            case "members"    -> messages.getEditFlagGroupMembers();
+            case "nonmembers" -> messages.getEditFlagGroupNonMembers();
+            case "nonowners"  -> messages.getEditFlagGroupNonOwners();
+            case "all"        -> messages.getEditFlagGroupAll();
+            default           -> "Null";
+        });
+
+        s = s.replace("%flag%", flagName);
         return s;
     }
 
     @Nullable
     public Boolean getFlagValue(PSRegion region, String flagName){
         ProtectedRegion protectedRegion = region.getWGRegion();
-        Flag<?> flag = Flags.fuzzyMatchFlag(WorldGuard.getInstance().getFlagRegistry(), flagName);
-        if( flag == null) return null;
+        Flag<?> flag = lookupFlag(flagName);
+        if (flag == null) return null;
+
         Object value = protectedRegion.getFlag(flag);
-        if(value == null) return null;
-        if(flag instanceof BooleanFlag){
+        if (value == null) return null;
+
+        if (flag instanceof BooleanFlag) {
             return (Boolean) value;
         }
-        if(flag instanceof StateFlag){
-            if(value == StateFlag.State.ALLOW){
-                return true;
-            }else if (value == StateFlag.State.DENY){
-                return false;
-            }
+        if (flag instanceof StateFlag) {
+            return value == StateFlag.State.ALLOW ? Boolean.TRUE
+                 : value == StateFlag.State.DENY  ? Boolean.FALSE
+                 : null;
         }
         return null;
     }
 
+    public String getStringFlag(PSRegion region, String flagName){
+        ProtectedRegion rg = region.getWGRegion();
+        Flag<?> flag = lookupFlag(flagName);
+        if (flag instanceof StringFlag stringFlag) {
+            Object value = rg.getFlag(stringFlag);
+            return value != null ? value.toString() : null;
+        }
+        return null;
+    }
+
+    public boolean isStringFlag(String flagName){
+        return lookupFlag(flagName) instanceof StringFlag;
+    }
 
     public String getFlagGroup(PSRegion region, String flagName){
         ProtectedRegion protectedRegion = region.getWGRegion();
-        Flag<?> flag = Flags.fuzzyMatchFlag(WorldGuard.getInstance().getFlagRegistry(), flagName);
-        if( flag == null) return "null";
+        Flag<?> flag = lookupFlag(flagName);
+        if (flag == null) return "null";
+
         RegionGroup regionGroup = protectedRegion.getFlag(flag.getRegionGroupFlag());
-        String group = "all";
-        if(flag.getRegionGroupFlag() != null && regionGroup != null){
-            group = regionGroup.toString().toLowerCase().replaceAll("_", "");
+        if (flag.getRegionGroupFlag() != null && regionGroup != null) {
+            return regionGroup.toString().toLowerCase().replace("_", "");
         }
-        return group;
+        return "all";
     }
 
-    public void updateFlag(PSRegion region, String flagName, Boolean value, String group){
+    public void updateFlag(PSRegion region, String flagName, Object value, String group){
         ProtectedRegion protectedRegion = region.getWGRegion();
-        Flag flag = Flags.fuzzyMatchFlag(WorldGuard.getInstance().getFlagRegistry(), flagName);
-        if( flag == null) return;
-        RegionGroup regionGroup = RegionGroup.ALL;
-        switch (group){
-            case "owners" -> regionGroup = RegionGroup.OWNERS;
-            case "members" -> regionGroup = RegionGroup.MEMBERS;
-            case "nonowners" -> regionGroup = RegionGroup.NON_OWNERS;
-            case "nonmembers" -> regionGroup = RegionGroup.NON_MEMBERS;
+        Flag<?> flag = lookupFlag(flagName);
+        if (flag == null) return;
+
+        RegionGroup regionGroup = switch (group) {
+            case "owners"     -> RegionGroup.OWNERS;
+            case "members"    -> RegionGroup.MEMBERS;
+            case "nonowners"  -> RegionGroup.NON_OWNERS;
+            case "nonmembers" -> RegionGroup.NON_MEMBERS;
+            default           -> RegionGroup.ALL;
+        };
+
+        protectedRegion.setFlag(flag.getRegionGroupFlag(), regionGroup);
+
+        if (value == null) {
+            protectedRegion.setFlag(flag, null);
+            return;
         }
-        if(flag instanceof BooleanFlag){
-            if(value == null){
-                protectedRegion.setFlag(flag.getRegionGroupFlag(), regionGroup);
-                protectedRegion.setFlag(flag, null);
-                return;
-            }
-            if(value){
-                protectedRegion.setFlag(flag.getRegionGroupFlag(), regionGroup);
-                protectedRegion.setFlag(flag, true);
-                return;
-            }else {
-                protectedRegion.setFlag(flag.getRegionGroupFlag(), regionGroup);
-                protectedRegion.setFlag(flag, false);
-                return;
-            }
-        } else if (flag instanceof StateFlag) {
-            if(value == null){
-                protectedRegion.setFlag(flag.getRegionGroupFlag(), regionGroup);
-                protectedRegion.setFlag(flag, null);
-                return ;
-            }
-            if(value){
-                protectedRegion.setFlag(flag.getRegionGroupFlag(), regionGroup);
-                protectedRegion.setFlag(flag, StateFlag.State.ALLOW);
-                return ;
-            }else {
-                protectedRegion.setFlag(flag.getRegionGroupFlag(), regionGroup);
-                protectedRegion.setFlag(flag, StateFlag.State.DENY);
-                return ;
-            }
+
+        if (flag instanceof BooleanFlag booleanFlag) {
+            protectedRegion.setFlag(booleanFlag, (Boolean) value);
+        } else if (flag instanceof StateFlag stateFlag) {
+            protectedRegion.setFlag(stateFlag,
+                    (Boolean) value ? StateFlag.State.ALLOW : StateFlag.State.DENY);
+        } else if (flag instanceof StringFlag stringFlag) {
+            protectedRegion.setFlag(stringFlag, (String) value);
         }
     }
-
 
 
     public void sendMessage(Player player, String message, boolean prefixed){
@@ -392,6 +383,63 @@ public class Utils {
 
     public void log(String message){
         Bukkit.getConsoleSender().sendMessage(MessageUtils.getLegacy(plugin.prefix + message));
+    }
+
+    public void teleportPlayer(Player player, Location location, int delay){
+        if(delay <= 0){
+            teleportPlayer(player, location);
+            return;
+        }else {
+            Location actualLoc = player.getLocation();
+            if(plugin.isFolia()){
+                AtomicInteger finalD = new AtomicInteger(delay);
+
+                plugin.getFoliaManager().runTaskTimer(player, scheduledTask -> {
+                    if(finalD.get() == 0){
+                        scheduledTask.cancel();
+                        plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getTeleported(), true);
+                        teleportPlayer(player, location);
+                        return;
+                    }
+                    if(!equalsLocCords(actualLoc, player.getLocation())){
+                        scheduledTask.cancel();
+                        plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getTeleportCancelled(), true);
+                        return;
+                    }
+                    plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getTeleporting()
+                            .replace("%time%", String.valueOf(finalD.get())), true);
+                    finalD.set(finalD.get() - 1);
+                    }, 0L, 20L);
+                return;
+            }
+            new BukkitRunnable() {
+                private int delayed = delay;
+                /**
+                 * Runs this operation.
+                 */
+                @Override
+                public void run() {
+                    if(delayed == 0){
+                        cancel();
+                        plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getTeleported(), true);
+                        teleportPlayer(player, location);
+                        return;
+                    }
+                    if(!equalsLocCords(actualLoc, player.getLocation())){
+                        cancel();
+                        plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getTeleportCancelled(), true);
+                        return;
+                    }
+                    plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getTeleporting()
+                            .replace("%time%", String.valueOf(delayed)), true);
+                    delayed--;
+                }
+            }.runTaskTimer(plugin, 0L, 20L);
+        }
+    }
+
+    public boolean equalsLocCords(Location location1, Location location2){
+        return location1.getY() == location2.getY() && location1.getX() == location2.getX() && location1.getZ() == location2.getZ();
     }
 
     public void teleportPlayer(Player player, Location location){
