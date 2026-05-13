@@ -16,10 +16,13 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.reflect.Method;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
@@ -168,19 +171,31 @@ public class Utils {
 
 
     public GuiItem createItemBuilder(InventoryItem inventoryItem){
+        return createItemBuilder(inventoryItem, (Player) null);
+    }
+
+    public GuiItem createItemBuilder(InventoryItem inventoryItem, @Nullable Player viewer){
         return buildGuiItem(inventoryItem, inventoryItem.name, inventoryItem.lore,
-                resolveMaterial(inventoryItem, null), null, false);
+                resolveMaterial(inventoryItem, null), null, viewer, false);
     }
 
     public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion){
-        if(psRegion == null) return createItemBuilder(inventoryItem);
+        return createItemBuilder(inventoryItem, psRegion, (Player) null);
+    }
+
+    public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, @Nullable Player viewer){
+        if(psRegion == null) return createItemBuilder(inventoryItem, viewer);
         String name = parsePSVar(inventoryItem.name, psRegion);
         List<String> lore = parsePSVar(inventoryItem.lore, psRegion);
         return buildGuiItem(inventoryItem, name, lore,
-                resolveMaterial(inventoryItem, psRegion), null, false);
+                resolveMaterial(inventoryItem, psRegion), null, viewer, false);
     }
 
     public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, UUID player){
+        return createItemBuilder(inventoryItem, psRegion, player, null);
+    }
+
+    public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, UUID player, @Nullable Player viewer){
 
         OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player);
         String playerName = String.valueOf(offlinePlayer.getName());
@@ -190,17 +205,21 @@ public class Utils {
             lore.add(line.replace("%player%", playerName));
         }
         return buildGuiItem(inventoryItem, name, lore,
-                resolveMaterial(inventoryItem, psRegion), offlinePlayer, true);
+                resolveMaterial(inventoryItem, psRegion), offlinePlayer, viewer, true);
     }
 
     public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, String flag){
+        return createItemBuilder(inventoryItem, psRegion, flag, null);
+    }
+
+    public GuiItem createItemBuilder(InventoryItem inventoryItem, PSRegion psRegion, String flag, @Nullable Player viewer){
         String name = getFlag(parsePSVar(inventoryItem.name, psRegion), psRegion, flag);
         List<String> lore = new ArrayList<>();
         for (String line : parsePSVar(inventoryItem.lore, psRegion)) {
             lore.add(getFlag(line, psRegion, flag));
         }
         return buildGuiItem(inventoryItem, name, lore,
-                resolveMaterial(inventoryItem, psRegion), null, true);
+                resolveMaterial(inventoryItem, psRegion), null, viewer, true);
     }
 
 
@@ -227,11 +246,13 @@ public class Utils {
      */
     @SuppressWarnings("deprecation")
     private GuiItem buildGuiItem(InventoryItem inventoryItem, String name, List<String> lore,
-                                 Material material, @Nullable OfflinePlayer skullOwner, boolean addItemFlags) {
+                                 Material material, @Nullable OfflinePlayer skullOwner,
+                                 @Nullable Player viewer, boolean addItemFlags) {
+        GuiItem guiItem;
         if (material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null) {
             SkullBuilder builder = ItemBuilder.skull()
-                    .setName(MessageUtils.getLegacy(name))
-                    .setLore(MessageUtils.getColoredList(lore));
+                    .setName(MessageUtils.getLegacy(viewer, name))
+                    .setLore(MessageUtils.getColoredList(viewer, lore));
 
             if (skullOwner != null && inventoryItem.urlSkull.equalsIgnoreCase("player")) {
                 builder.owner(skullOwner);
@@ -240,15 +261,39 @@ public class Utils {
             }
 
             if (addItemFlags) builder.flags(ItemFlag.values());
-            return builder.asGuiItem();
+            guiItem = builder.asGuiItem();
+        } else {
+            var builder = ItemBuilder.from(material)
+                    .setName(MessageUtils.getLegacy(viewer, name))
+                    .setLore(MessageUtils.getColoredList(viewer, lore));
+
+            if (addItemFlags) builder.flags(ItemFlag.values());
+            guiItem = builder.asGuiItem();
         }
 
-        var builder = ItemBuilder.from(material)
-                .setName(MessageUtils.getLegacy(name))
-                .setLore(MessageUtils.getColoredList(lore));
+        applyAdventureDisplay(guiItem, name, lore, viewer);
+        return guiItem;
+    }
 
-        if (addItemFlags) builder.flags(ItemFlag.values());
-        return builder.asGuiItem();
+    private void applyAdventureDisplay(GuiItem guiItem, String name, List<String> lore, @Nullable Player viewer) {
+        try {
+            Method getter = GuiItem.class.getMethod("getItemStack");
+            Object result = getter.invoke(guiItem);
+            if (!(result instanceof ItemStack itemStack)) return;
+
+            ItemMeta meta = itemStack.getItemMeta();
+            if (meta == null) return;
+
+            Method displayName = meta.getClass().getMethod("displayName", net.kyori.adventure.text.Component.class);
+            displayName.invoke(meta, MessageUtils.getColoredMessage(viewer, name));
+
+            Method metaLore = meta.getClass().getMethod("lore", List.class);
+            metaLore.invoke(meta, MessageUtils.components(viewer, lore));
+
+            itemStack.setItemMeta(meta);
+        } catch (ReflectiveOperationException ignored) {
+            // Spigot-only item meta does not expose Adventure components; legacy text is already applied.
+        }
     }
 
 
@@ -368,10 +413,17 @@ public class Utils {
 
 
     public void sendMessage(Player player, String message, boolean prefixed){
-        if(prefixed){
-            player.sendMessage(MessageUtils.getLegacy(plugin.getMessageConfig().getPrefix() + message));
-        }else {
-            player.sendMessage(MessageUtils.getLegacy(message));
+        String parsed = prefixed ? plugin.getMessageConfig().getPrefix() + message : message;
+        sendFormatted(player, parsed);
+    }
+
+    private void sendFormatted(Player player, String message) {
+        try {
+            Method sendMessage = player.getClass().getMethod("sendMessage", net.kyori.adventure.text.Component.class);
+            sendMessage.invoke(player, MessageUtils.getColoredMessage(player, message));
+            return;
+        } catch (ReflectiveOperationException ignored) {
+            player.sendMessage(MessageUtils.getLegacy(player, message));
         }
     }
 
