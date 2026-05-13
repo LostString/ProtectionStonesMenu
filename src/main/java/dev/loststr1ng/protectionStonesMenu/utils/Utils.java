@@ -19,7 +19,6 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Method;
@@ -446,15 +445,15 @@ public class Utils {
             if(plugin.isFolia()){
                 AtomicInteger finalD = new AtomicInteger(delay);
 
-                plugin.getFoliaManager().runTaskTimer(player, scheduledTask -> {
+                plugin.getScheduler().runTaskTimer(player, scheduledTask -> {
                     if(finalD.get() == 0){
-                        scheduledTask.cancel();
+                        plugin.getScheduler().cancelTask(scheduledTask);
                         plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getTeleported(), true);
                         teleportPlayer(player, location);
                         return;
                     }
                     if(!equalsLocCords(actualLoc, player.getLocation())){
-                        scheduledTask.cancel();
+                        plugin.getScheduler().cancelTask(scheduledTask);
                         plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getTeleportCancelled(), true);
                         return;
                     }
@@ -496,7 +495,7 @@ public class Utils {
 
     public void teleportPlayer(Player player, Location location){
         if(plugin.isFolia()){
-            plugin.getFoliaManager().teleport(player, location);
+            plugin.getScheduler().teleport(player, location);
             return;
         }
         player.teleport(location);

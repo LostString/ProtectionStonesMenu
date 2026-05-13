@@ -8,7 +8,6 @@ import com.sk89q.worldguard.protection.regions.RegionContainer;
 import dev.espi.protectionstones.PSCommand;
 import dev.espi.protectionstones.PSRegion;
 import dev.espi.protectionstones.ProtectionStones;
-import dev.loststr1ng.FoliaManager;
 import dev.loststr1ng.protectionStonesMenu.commands.MainCommand;
 import dev.loststr1ng.protectionStonesMenu.commands.protectionstones.argBanCommand;
 import dev.loststr1ng.protectionStonesMenu.commands.protectionstones.argBanListCommand;
@@ -56,7 +55,6 @@ public final class ProtectionStonesMenu extends JavaPlugin {
     public static StringFlag bannedPlayers;
     private ProtectionStones protectionStones;
     private SchedulerUtil scheduler;
-    private FoliaManager foliaManager;
     public boolean folia = false;
 
     public String prefix = "&8[&aProtectionStones &8| &bMenu &8] &9";
@@ -99,8 +97,7 @@ public final class ProtectionStonesMenu extends JavaPlugin {
         container = WorldGuard.getInstance().getPlatform().getRegionContainer();
 
         if(isFolia()){
-            utils.log("&aFolia detected, loading foliaManager...");
-            this.foliaManager = new FoliaManager(this);
+            utils.log("&aFolia detected, using Paper entity scheduler...");
         }
         if(mainConfig.isBanModuleEnabled()){
             utils.log("&9Ban Module enabled, registering commands");
@@ -220,10 +217,6 @@ public final class ProtectionStonesMenu extends JavaPlugin {
         } catch (Exception ex) {
             return "&8[&aProtectionStonesMenu&8] &cError while checking update.";
         }
-    }
-
-    public FoliaManager getFoliaManager() {
-        return foliaManager;
     }
 
     public boolean isFolia() {
