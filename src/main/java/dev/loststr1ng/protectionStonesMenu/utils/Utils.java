@@ -58,7 +58,7 @@ public class Utils {
             if(configurationSection != null){
                 this.id = configurationSection.getString("id", "STONE");
                 this.urlSkull = configurationSection.getString("url");
-                this.enabled = configurationSection.getBoolean("enabled");
+                this.enabled = configurationSection.getBoolean("enabled", true);
                 this.lock = configurationSection.getBoolean("lock");
                 this.name = configurationSection.getString("name", "Default name");
                 this.permission = configurationSection.getString("permission");
