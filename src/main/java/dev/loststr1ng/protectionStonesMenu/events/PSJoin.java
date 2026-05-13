@@ -17,7 +17,9 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 
-import java.util.List;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 
 public class PSJoin implements Listener {
 
@@ -45,10 +47,17 @@ public class PSJoin implements Listener {
         String message = event.getMessage();
         if(!message.startsWith("/")) return;
         if(!plugin.getMainConfig().isOpenPSCommands()) return;
-        String[] args = message.split(" ");
-        List<String> commands = ProtectionStones.getInstance().getConfigOptions().aliases;
-        commands.add(ProtectionStones.getInstance().getConfigOptions().base_command);
+        String[] args = message.trim().split("\\s+");
+        Set<String> commands = new HashSet<>();
+        for(String alias : ProtectionStones.getInstance().getConfigOptions().aliases){
+            commands.add(normalizeCommand(alias));
+        }
+        commands.add(normalizeCommand(ProtectionStones.getInstance().getConfigOptions().base_command));
         if(args.length < 1){
+            return;
+        }
+        String command = normalizeCommand(args[0]);
+        if(!commands.contains(command)){
             return;
         }
         if(args.length == 1){
@@ -75,6 +84,12 @@ public class PSJoin implements Listener {
                 event.setCancelled(true);
             }
         }
+    }
+
+    private String normalizeCommand(String command){
+        return command.startsWith("/")
+                ? command.substring(1).toLowerCase(Locale.ROOT)
+                : command.toLowerCase(Locale.ROOT);
     }
 
     @EventHandler
