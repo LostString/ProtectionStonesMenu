@@ -283,15 +283,17 @@ public class Utils {
             ItemMeta meta = itemStack.getItemMeta();
             if (meta == null) return;
 
-            Method displayName = meta.getClass().getMethod("displayName", net.kyori.adventure.text.Component.class);
+            Class<?> itemMetaClass = Class.forName("org.bukkit.inventory.meta.ItemMeta");
+
+            Method displayName = itemMetaClass.getMethod("displayName", net.kyori.adventure.text.Component.class);
             displayName.invoke(meta, MessageUtils.getColoredMessage(viewer, name));
 
-            Method metaLore = meta.getClass().getMethod("lore", List.class);
+            Method metaLore = itemMetaClass.getMethod("lore", List.class);
             metaLore.invoke(meta, MessageUtils.components(viewer, lore));
 
             itemStack.setItemMeta(meta);
             guiItem.setItemStack(itemStack);
-        } catch (ReflectiveOperationException ignored) {
+        } catch (ReflectiveOperationException | LinkageError ignored) {
             // Spigot-only item meta does not expose Adventure components; legacy text is already applied.
         }
     }
