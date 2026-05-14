@@ -48,6 +48,14 @@ public class MessageUtils {
         return SECTION.serialize(component);
     }
 
+    public static String getLegacyFallback(Player player, String message){
+        String parsed = setPlaceholders(player, message == null ? "" : message);
+        if (containsMiniMessageTag(parsed)) {
+            return AMPERSAND.serialize(AMPERSAND.deserialize(MINI_MESSAGE.stripTags(parsed)));
+        }
+        return getLegacy(player, parsed);
+    }
+
     public static List<String> getColoredList(List<String> list){
         return getColoredList(null, list);
     }
@@ -55,7 +63,7 @@ public class MessageUtils {
     public static List<String> getColoredList(Player player, List<String> list){
         List<String> coloredList = new ArrayList<>();
         for(String l: list){
-            coloredList.add(getLegacy(player, l));
+            coloredList.add(getLegacyFallback(player, l));
         }
 
         return coloredList;
@@ -73,7 +81,7 @@ public class MessageUtils {
         return coloredList;
     }
 
-    private static boolean containsMiniMessageTag(String message) {
+    public static boolean containsMiniMessageTag(String message) {
         return message.indexOf('<') >= 0 && message.indexOf('>') > message.indexOf('<');
     }
 

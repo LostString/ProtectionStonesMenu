@@ -250,7 +250,7 @@ public class Utils {
         GuiItem guiItem;
         if (material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null) {
             SkullBuilder builder = ItemBuilder.skull()
-                    .setName(MessageUtils.getLegacy(viewer, name))
+                    .setName(MessageUtils.getLegacyFallback(viewer, name))
                     .setLore(MessageUtils.getColoredList(viewer, lore));
 
             if (skullOwner != null && inventoryItem.urlSkull.equalsIgnoreCase("player")) {
@@ -263,7 +263,7 @@ public class Utils {
             guiItem = builder.asGuiItem();
         } else {
             var builder = ItemBuilder.from(material)
-                    .setName(MessageUtils.getLegacy(viewer, name))
+                    .setName(MessageUtils.getLegacyFallback(viewer, name))
                     .setLore(MessageUtils.getColoredList(viewer, lore));
 
             if (addItemFlags) builder.flags(ItemFlag.values());
