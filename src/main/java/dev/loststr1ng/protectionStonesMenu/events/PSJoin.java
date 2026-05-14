@@ -72,6 +72,11 @@ public class PSJoin implements Listener {
                 event.setCancelled(true);
                 return;
             }
+            if(subCommand.equalsIgnoreCase("settings")){
+                plugin.getInventoryManager().openPSMainMenu(event.getPlayer());
+                event.setCancelled(true);
+                return;
+            }
             if(subCommand.equalsIgnoreCase("flag")){
                 PSRegion region = PSRegion.fromLocation(event.getPlayer().getLocation());
                 if(region == null) return;

@@ -36,13 +36,13 @@ public class MainCommand extends Command {
                     }
                     return true;
                 }
-                if(args[0].equalsIgnoreCase("menu")){
+                if(args[0].equalsIgnoreCase("menu") || args[0].equalsIgnoreCase("settings")){
                     plugin.getInventoryManager().openPSMainMenu(player);
                     return true;
                 }
             }else {
                 plugin.getUtils().sendMessage(player, plugin.getMessageConfig().getUsageMessage().replace("%command%", getName())
-                        .replace("%arguments%", "menu/reload"), true);
+                        .replace("%arguments%", "menu/settings/reload"), true);
                 return true;
             }
         }
@@ -56,7 +56,7 @@ public class MainCommand extends Command {
                 return true;
             }
            sender.sendMessage( MessageUtils.getLegacy( plugin.getMessageConfig().getPrefix() + plugin.getMessageConfig().getUsageMessage().replace("%command%", getName())
-                   .replace("%arguments%", "menu/reload")));
+                   .replace("%arguments%", "menu/settings/reload")));
         }
         return false;
     }
@@ -64,7 +64,7 @@ public class MainCommand extends Command {
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) throws IllegalArgumentException {
         if(args.length == 1){
-            return List.of("reload", "menu");
+            return List.of("reload", "menu", "settings");
         }
 
         return List.of();
