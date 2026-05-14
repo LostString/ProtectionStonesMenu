@@ -1,6 +1,7 @@
 package dev.loststr1ng.protectionStonesMenu;
 
 import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.protection.flags.Flag;
 import com.sk89q.worldguard.protection.flags.StringFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
 import com.sk89q.worldguard.protection.flags.registry.FlagRegistry;
@@ -173,9 +174,22 @@ public final class ProtectionStonesMenu extends JavaPlugin {
             bannedPlayers = stringFlag;
             log.info("[ProtectionStonesMenu] Custom flag (ps-player-banned) registered.");
         }catch (FlagConflictException exception){
-            log.severe("[ProtectionStonesMenu] &cAn error occurred while updating the flag. Please try again later");
+            reuseBannedPlayersFlag(flagRegistry, log);
+        }catch (IllegalStateException exception){
+            reuseBannedPlayersFlag(flagRegistry, log);
         }
 
+    }
+
+    private void reuseBannedPlayersFlag(FlagRegistry flagRegistry, Logger log){
+        Flag<?> existing = flagRegistry.get("ps-player-banned");
+        if(existing instanceof StringFlag stringFlag){
+            bannedPlayers = stringFlag;
+            log.info("[ProtectionStonesMenu] Reusing existing custom flag (ps-player-banned).");
+            return;
+        }
+
+        log.severe("[ProtectionStonesMenu] Could not register or reuse custom flag (ps-player-banned). Restart the server to register it before WorldGuard locks the registry.");
     }
 
     public void registerEvents(){
