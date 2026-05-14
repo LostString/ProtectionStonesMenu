@@ -290,6 +290,7 @@ public class Utils {
             metaLore.invoke(meta, MessageUtils.components(viewer, lore));
 
             itemStack.setItemMeta(meta);
+            guiItem.setItemStack(itemStack);
         } catch (ReflectiveOperationException ignored) {
             // Spigot-only item meta does not expose Adventure components; legacy text is already applied.
         }
