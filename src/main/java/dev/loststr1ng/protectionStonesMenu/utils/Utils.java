@@ -250,7 +250,7 @@ public class Utils {
         GuiItem guiItem;
         if (material.name().equalsIgnoreCase("PLAYER_HEAD") && inventoryItem.urlSkull != null) {
             SkullBuilder builder = ItemBuilder.skull()
-                    .setName(MessageUtils.getLegacy(viewer, name))
+                    .setName(MessageUtils.getLegacyFallback(viewer, name))
                     .setLore(MessageUtils.getColoredList(viewer, lore));
 
             if (skullOwner != null && inventoryItem.urlSkull.equalsIgnoreCase("player")) {
@@ -263,7 +263,7 @@ public class Utils {
             guiItem = builder.asGuiItem();
         } else {
             var builder = ItemBuilder.from(material)
-                    .setName(MessageUtils.getLegacy(viewer, name))
+                    .setName(MessageUtils.getLegacyFallback(viewer, name))
                     .setLore(MessageUtils.getColoredList(viewer, lore));
 
             if (addItemFlags) builder.flags(ItemFlag.values());
@@ -283,14 +283,17 @@ public class Utils {
             ItemMeta meta = itemStack.getItemMeta();
             if (meta == null) return;
 
-            Method displayName = meta.getClass().getMethod("displayName", net.kyori.adventure.text.Component.class);
+            Class<?> itemMetaClass = Class.forName("org.bukkit.inventory.meta.ItemMeta");
+
+            Method displayName = itemMetaClass.getMethod("displayName", net.kyori.adventure.text.Component.class);
             displayName.invoke(meta, MessageUtils.getColoredMessage(viewer, name));
 
-            Method metaLore = meta.getClass().getMethod("lore", List.class);
+            Method metaLore = itemMetaClass.getMethod("lore", List.class);
             metaLore.invoke(meta, MessageUtils.components(viewer, lore));
 
             itemStack.setItemMeta(meta);
-        } catch (ReflectiveOperationException ignored) {
+            guiItem.setItemStack(itemStack);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
             // Spigot-only item meta does not expose Adventure components; legacy text is already applied.
         }
     }

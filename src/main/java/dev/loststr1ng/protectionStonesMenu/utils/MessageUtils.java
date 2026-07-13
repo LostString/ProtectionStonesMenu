@@ -16,9 +16,14 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MessageUtils {
 
+    private static final Pattern SPRITE_TAG_PATTERN = Pattern.compile("<sprite(?::[^>]*)?>");
+    private static final Pattern FALLBACK_ARGUMENT_PATTERN =
+            Pattern.compile("fallback=(?:\"([^\"]*)\"|'([^']*)'|([^:>]+))");
     private static final LegacyComponentSerializer AMPERSAND =
             LegacyComponentSerializer.legacyAmpersand();
     private static final LegacyComponentSerializer SECTION =
@@ -48,6 +53,15 @@ public class MessageUtils {
         return SECTION.serialize(component);
     }
 
+    public static String getLegacyFallback(Player player, String message){
+        String parsed = setPlaceholders(player, message == null ? "" : message);
+        if (containsMiniMessageTag(parsed)) {
+            String fallback = replaceSpriteTagsWithFallback(parsed);
+            return AMPERSAND.serialize(AMPERSAND.deserialize(MINI_MESSAGE.stripTags(fallback)));
+        }
+        return getLegacy(player, parsed);
+    }
+
     public static List<String> getColoredList(List<String> list){
         return getColoredList(null, list);
     }
@@ -55,7 +69,7 @@ public class MessageUtils {
     public static List<String> getColoredList(Player player, List<String> list){
         List<String> coloredList = new ArrayList<>();
         for(String l: list){
-            coloredList.add(getLegacy(player, l));
+            coloredList.add(getLegacyFallback(player, l));
         }
 
         return coloredList;
@@ -73,7 +87,7 @@ public class MessageUtils {
         return coloredList;
     }
 
-    private static boolean containsMiniMessageTag(String message) {
+    public static boolean containsMiniMessageTag(String message) {
         return message.indexOf('<') >= 0 && message.indexOf('>') > message.indexOf('<');
     }
 
@@ -93,7 +107,10 @@ public class MessageUtils {
     private static Component createSpriteComponent(ArgumentQueue arguments) {
         List<String> parts = new ArrayList<>();
         while (arguments.hasNext()) {
-            parts.add(arguments.pop().value());
+            String value = arguments.pop().value();
+            if (!value.startsWith("fallback=")) {
+                parts.add(value);
+            }
         }
 
         if (parts.isEmpty()) {
@@ -129,6 +146,29 @@ public class MessageUtils {
         } catch (ReflectiveOperationException | LinkageError ignored) {
             return Component.empty();
         }
+    }
+
+    private static String replaceSpriteTagsWithFallback(String message) {
+        Matcher matcher = SPRITE_TAG_PATTERN.matcher(message);
+        StringBuffer buffer = new StringBuffer();
+        while (matcher.find()) {
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(getSpriteFallback(matcher.group())));
+        }
+        matcher.appendTail(buffer);
+        return buffer.toString();
+    }
+
+    private static String getSpriteFallback(String spriteTag) {
+        Matcher matcher = FALLBACK_ARGUMENT_PATTERN.matcher(spriteTag);
+        if (matcher.find()) {
+            for (int group = 1; group <= matcher.groupCount(); group++) {
+                String value = matcher.group(group);
+                if (value != null) {
+                    return value;
+                }
+            }
+        }
+        return "";
     }
 
     private static String setPlaceholders(Player player, String message) {
