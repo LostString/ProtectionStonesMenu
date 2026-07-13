@@ -46,7 +46,7 @@ public class InventoryManager {
     private Gui createAndOpenGui(Player player, String title, int rows) {
 
         return Gui.gui()
-                .title(MessageUtils.getColoredMessage(title))
+                .title(MessageUtils.getColoredMessage(player, title))
                 .rows(rows)
                 .create();
     }
@@ -93,21 +93,21 @@ public class InventoryManager {
             if (type.startsWith("custom:")) {
                 addCustomItem(gui, inventoryItem, region, player);
             } else if (type.equalsIgnoreCase("ps-homes")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     openPSHomeMenu(player);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (region != null && type.equalsIgnoreCase("ps-info")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     openPSEditMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (region == null && type.equalsIgnoreCase("ps-info2")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, player);
                 guiItem.setAction(e -> e.setCancelled(true));
                 gui.setItem(inventoryItem.slots, guiItem);
             }
@@ -135,7 +135,7 @@ public class InventoryManager {
                     if (!slotIterator.hasNext()) break;
                     int slot = slotIterator.next();
 
-                    GuiItem guiItem = utils.createItemBuilder(inventoryItem, psRegion);
+                    GuiItem guiItem = utils.createItemBuilder(inventoryItem, psRegion, player);
                     guiItem.setAction(e -> {
                         e.setCancelled(true);
                         if (e.isLeftClick()) {
@@ -177,7 +177,7 @@ public class InventoryManager {
             if (type.startsWith("custom:")) {
                 addCustomItem(gui, inventoryItem, region, player);
             } else if (type.equalsIgnoreCase("ps-rename")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     if (!region.isOwner(player.getUniqueId()) && !hasPermission(player, "protectionstones.name")) {
@@ -191,28 +191,28 @@ public class InventoryManager {
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("ps-flags")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     openPSEditFlagsMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("ps-owners")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     openPSOwnersMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("ps-members")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     openPSMembersMenu(player, region);
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("ps-hide-on") && !region.isHidden()) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     if (!hasPermission(player, "protectionstones.hide")) {
@@ -225,7 +225,7 @@ public class InventoryManager {
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("ps-hide-off") && region.isHidden()) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     if (!hasPermission(player, "protectionstones.hide")) {
@@ -238,7 +238,7 @@ public class InventoryManager {
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("ps-ban") && mainConfig.isBanModuleEnabled()) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(e -> {
                     e.setCancelled(true);
                     openPSBansMenu(player, region);
@@ -267,7 +267,7 @@ public class InventoryManager {
 
             if (type.startsWith("flags:")) {
                 String flag = type.substring(6); // faster than replaceAll("flags:", "")
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, flag);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, flag, player);
 
                 if (utils.isStringFlag(flag)) {
                     String flagString = utils.getStringFlag(region, flag);
@@ -331,7 +331,7 @@ public class InventoryManager {
     private void sendFlagUpdatedMessage(Utils utils, MessageConfig messageConfig,
                                         Player player, PSRegion region, String flag) {
         String updated = utils.getFlag(messageConfig.getEditFlagUpdated(), region, flag);
-        utils.sendMessage(player, MessageUtils.getLegacy(utils.parsePSVar(updated, region)), true);
+        utils.sendMessage(player, utils.parsePSVar(updated, region), true);
     }
 
 
@@ -354,7 +354,7 @@ public class InventoryManager {
                 for (UUID ownerUUID : region.getOwners()) {
                     if (!slotIterator.hasNext()) break;
                     int slot = slotIterator.next();
-                    GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, ownerUUID);
+                    GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, ownerUUID, player);
                     guiItem.setAction(event -> {
                         event.setCancelled(true);
                         openPSPlayerMenu(player, region, ownerUUID);
@@ -362,7 +362,7 @@ public class InventoryManager {
                     gui.setItem(slot, guiItem);
                 }
             } else if (type.equalsIgnoreCase("add-owner")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
                     if (!hasPermission(player, "protectionstones.owners")) {
@@ -403,7 +403,7 @@ public class InventoryManager {
                 for (UUID memberUUID : region.getMembers()) {
                     if (!slotIterator.hasNext()) break;
                     int slot = slotIterator.next();
-                    GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, memberUUID);
+                    GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, memberUUID, player);
                     guiItem.setAction(event -> {
                         event.setCancelled(true);
                         openPSPlayerMenu(player, region, memberUUID);
@@ -411,7 +411,7 @@ public class InventoryManager {
                     gui.setItem(slot, guiItem);
                 }
             } else if (type.equalsIgnoreCase("add-member")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
                     if (!hasPermission(player, "protectionstones.members")) {
@@ -459,7 +459,7 @@ public class InventoryManager {
                     int slot = slotIterator.next();
                     UUID uuid = UUID.fromString(bannedUUID);
                     String name = UUIDCache.getNameFromUUID(uuid);
-                    GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, uuid);
+                    GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, uuid, player);
                     guiItem.setAction(event -> {
                         event.setCancelled(true);
                         if (event.isLeftClick()) {
@@ -475,7 +475,7 @@ public class InventoryManager {
                     gui.setItem(slot, guiItem);
                 }
             } else if (type.equalsIgnoreCase("add-ban")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, player);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
                     plugin.promptModelMap.put(player.getUniqueId(),
@@ -514,7 +514,7 @@ public class InventoryManager {
             String type = inventoryItem.item;
 
             if (type.equalsIgnoreCase("ban")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target, player);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
                     if (!mainConfig.isBanModuleEnabled()) {
@@ -536,7 +536,7 @@ public class InventoryManager {
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("kick")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target, player);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
                     Player targetPlayer = Bukkit.getPlayer(target);
@@ -557,7 +557,7 @@ public class InventoryManager {
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("remove")) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target, player);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
                     utils.sendMessage(player, messageConfig.getEditMemberRemoveSuccess()
@@ -568,7 +568,7 @@ public class InventoryManager {
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("owner") && !region.isOwner(target)) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target, player);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
                     utils.sendMessage(player, messageConfig.getEditPlayerPromote()
@@ -579,7 +579,7 @@ public class InventoryManager {
                 });
                 gui.setItem(inventoryItem.slots, guiItem);
             } else if (type.equalsIgnoreCase("member") && region.isOwner(target)) {
-                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target);
+                GuiItem guiItem = utils.createItemBuilder(inventoryItem, region, target, player);
                 guiItem.setAction(event -> {
                     event.setCancelled(true);
                     utils.sendMessage(player, messageConfig.getEditPlayerDemote()
@@ -599,7 +599,7 @@ public class InventoryManager {
 
 
     private void addCustomItem(Gui gui, Utils.InventoryItem inventoryItem, PSRegion region, Player player) {
-        GuiItem guiItem = plugin.getUtils().createItemBuilder(inventoryItem, region);
+        GuiItem guiItem = plugin.getUtils().createItemBuilder(inventoryItem, region, player);
         guiItem.setAction(event -> {
             event.setCancelled(true);
             boolean allowed = !plugin.getMainConfig().isUsePermissions()

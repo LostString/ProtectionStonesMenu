@@ -3,5 +3,6 @@ version: '${project.version}'
 main: dev.loststr1ng.protectionStonesMenu.ProtectionStonesMenu
 api-version: '1.18'
 depend: [WorldGuard, ProtectionStones]
+softdepend: [PlaceholderAPI]
 folia-supported: true
 
