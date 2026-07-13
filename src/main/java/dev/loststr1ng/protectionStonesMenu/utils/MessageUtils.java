@@ -2,11 +2,18 @@ package dev.loststr1ng.protectionStonesMenu.utils;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.ParsingException;
+import net.kyori.adventure.text.minimessage.tag.Tag;
+import net.kyori.adventure.text.minimessage.tag.resolver.ArgumentQueue;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,6 +23,9 @@ public class MessageUtils {
             LegacyComponentSerializer.legacyAmpersand();
     private static final LegacyComponentSerializer SECTION =
             LegacyComponentSerializer.legacySection();
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.builder()
+            .tags(TagResolver.resolver(TagResolver.standard(), spriteTagResolver()))
+            .build();
 
     public static Component getColoredMessage(String message) {
         return getColoredMessage(null, message);
@@ -23,7 +33,7 @@ public class MessageUtils {
 
     public static Component getColoredMessage(Player player, String message) {
         String parsed = setPlaceholders(player, message == null ? "" : message);
-        Component component = looksLikeMiniMessage(parsed)
+        Component component = containsMiniMessageTag(parsed)
                 ? deserializeMiniMessage(parsed)
                 : AMPERSAND.deserialize(parsed);
         return component.decoration(TextDecoration.ITALIC, false);
@@ -63,19 +73,61 @@ public class MessageUtils {
         return coloredList;
     }
 
-    private static boolean looksLikeMiniMessage(String message) {
+    private static boolean containsMiniMessageTag(String message) {
         return message.indexOf('<') >= 0 && message.indexOf('>') > message.indexOf('<');
     }
 
     private static Component deserializeMiniMessage(String message) {
         try {
-            Class<?> miniMessageClass = Class.forName("net.kyori.adventure.text.minimessage.MiniMessage");
-            Object miniMessage = miniMessageClass.getMethod("miniMessage").invoke(null);
-            Object component = miniMessageClass.getMethod("deserialize", String.class)
-                    .invoke(miniMessage, message);
-            return component instanceof Component ? (Component) component : AMPERSAND.deserialize(message);
-        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return MINI_MESSAGE.deserialize(message);
+        } catch (ParsingException ignored) {
             return AMPERSAND.deserialize(message);
+        }
+    }
+
+    private static TagResolver spriteTagResolver() {
+        return TagResolver.resolver("sprite", (arguments, context) ->
+                Tag.selfClosingInserting(createSpriteComponent(arguments)));
+    }
+
+    private static Component createSpriteComponent(ArgumentQueue arguments) {
+        List<String> parts = new ArrayList<>();
+        while (arguments.hasNext()) {
+            parts.add(arguments.pop().value());
+        }
+
+        if (parts.isEmpty()) {
+            return Component.empty();
+        }
+
+        String atlas;
+        String sprite;
+        if (parts.size() == 1) {
+            atlas = "minecraft:blocks";
+            sprite = parts.get(0);
+        } else if (parts.size() == 2) {
+            atlas = parts.get(0);
+            sprite = parts.get(1);
+        } else {
+            atlas = parts.get(0) + ":" + parts.get(1);
+            sprite = String.join(":", parts.subList(2, parts.size()));
+        }
+
+        try {
+            Class<?> keyClass = Class.forName("net.kyori.adventure.key.Key");
+            Object atlasKey = keyClass.getMethod("key", String.class).invoke(null, atlas);
+            Object spriteKey = keyClass.getMethod("key", String.class).invoke(null, sprite);
+
+            Class<?> contentsClass = Class.forName("net.kyori.adventure.text.object.ObjectContents");
+            Class<?> spriteContentsClass = Class.forName("net.kyori.adventure.text.object.SpriteObjectContentsImpl");
+            Constructor<?> constructor = spriteContentsClass.getDeclaredConstructor(keyClass, keyClass);
+            constructor.setAccessible(true);
+            Object contents = constructor.newInstance(atlasKey, spriteKey);
+
+            Method objectComponent = Component.class.getMethod("object", contentsClass);
+            return (Component) objectComponent.invoke(null, contents);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return Component.empty();
         }
     }
 
